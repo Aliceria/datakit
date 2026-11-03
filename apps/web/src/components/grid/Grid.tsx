@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { useLayoutEffect, useMemo, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   NATIVE,
@@ -38,10 +38,13 @@ const TYPE_LABEL: Record<ColumnType, string> = {
 type Props = {
   table: Table;
   inference: Record<string, ColumnInference>;
+  /** Rolagem a restaurar ao montar (F5, troca de aba da planilha). */
+  initialScroll?: { top: number; left: number } | undefined;
+  onScroll?: (top: number, left: number) => void;
 };
 
 /** Grade virtualizada nas duas direções, por enquanto só leitura (seção 7.1). */
-export function Grid({ table, inference }: Props) {
+export function Grid({ table, inference, initialScroll, onScroll }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const widths = useMemo(() => initialColumnWidths(table), [table]);
   const gutter = rowNumberWidth(table.rowOrder.length);
@@ -63,6 +66,16 @@ export function Grid({ table, inference }: Props) {
     overscan: 4,
   });
 
+  // Restaura a rolagem uma vez, ao montar. A altura total já é conhecida (linhas de altura fixa).
+  const restored = useRef(false);
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (restored.current || !el || !initialScroll) return;
+    restored.current = true;
+    el.scrollTop = initialScroll.top;
+    el.scrollLeft = initialScroll.left;
+  }, [initialScroll]);
+
   const totalWidth = gutter + columns.getTotalSize();
   const virtualColumns = columns.getVirtualItems();
 
@@ -75,6 +88,9 @@ export function Grid({ table, inference }: Props) {
       aria-rowcount={table.rowOrder.length + 1}
       aria-colcount={table.columns.length}
       tabIndex={0}
+      onScroll={(e) => {
+        onScroll?.(e.currentTarget.scrollTop, e.currentTarget.scrollLeft);
+      }}
     >
       <div
         style={{ width: totalWidth, height: HEADER_HEIGHT + rows.getTotalSize() }}

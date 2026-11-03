@@ -34,6 +34,8 @@ export default defineConfig({
       // Todos os testes saem do mesmo IP: os limites por IP são afrouxados aqui e testados na API.
       LIMIT_IMPORTS_PER_HOUR: '10000',
       LIMIT_ACTIVE_SESSIONS_PER_IP: '10000',
+      // Prazo depois de fechar a aba encurtado para testar o "fora do prazo" sem esperar 60 s.
+      SESSION_DELETE_AFTER_CLOSE_MS: '4000',
       DATABASE_URL: `file:${dbFile.replaceAll('\\', '/')}`,
     },
   },

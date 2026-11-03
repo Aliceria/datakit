@@ -14,11 +14,14 @@ import {
   deleteSession,
   fetchChunk,
   fetchManifest,
+  getSessionToken,
   setSessionToken,
   stageXlsx,
   uploadFile,
   type ImportResponse,
 } from '../api/client.ts';
+import { adoptSession, endSession } from '../session/sessionManager.ts';
+import { documentKey, loadViewState } from '../session/viewState.ts';
 import { requestPreview } from '../workers/previewClient.ts';
 import { appStore, showError, type PreviewState } from './appStore.ts';
 
@@ -142,13 +145,17 @@ async function upload(file: File, options: ImportOptions): Promise<void> {
 }
 
 async function finish(send: () => Promise<ImportResponse>): Promise<void> {
-  appStore.set({ busy: 'Importando…' });
+  const previousStatus = appStore.get().sessionStatus;
+  appStore.set({ busy: 'Importando…', sessionStatus: 'saving' });
   try {
     const result = await send();
     if (result.sessionId) setSessionToken(result.sessionId);
+    const token = getSessionToken();
+    if (token) await adoptSession(token);
     await loadDocument();
     showWarnings(result.warnings);
   } catch (err) {
+    appStore.set({ sessionStatus: previousStatus });
     showError(OPEN_ERROR, errorMessage(err));
   }
 }
@@ -171,10 +178,13 @@ export async function loadDocument(): Promise<void> {
   });
   await Promise.all(workers);
 
+  // Volta à aba e à rolagem em que o usuário estava (F5, aba reaberta ou duplicada).
+  const view = loadViewState(documentKey(manifest.source));
+  const remembered = tables.find((t) => t.id === view.activeTableId);
   const firstVisible = tables.find((t) => !t.hidden) ?? tables[0];
   appStore.set({
     doc: { manifest, tables },
-    activeTableId: firstVisible?.id,
+    activeTableId: (remembered ?? firstVisible)?.id,
     busy: undefined,
   });
 }
@@ -217,6 +227,6 @@ async function closeFile(): Promise<void> {
       return;
     }
   }
-  setSessionToken(null);
+  endSession();
   appStore.set({ doc: undefined, activeTableId: undefined, busy: undefined });
 }

@@ -10,3 +10,12 @@
   white-space: nowrap;
   overflow: hidden;
 }
+
+.dk-status-session {
+  margin-left: auto;
+}
+
+.dk-status-session.is-offline,
+.dk-status-session.is-expired {
+  color: var(--warning);
+}

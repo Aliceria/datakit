@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { z } from 'zod';
-import { LIMITS } from '@datakit/core';
+import { LIMITS, SESSION_TIMING } from '@datakit/core';
 
 // Raiz de apps/api, tanto rodando de src/ (desenvolvimento) quanto de dist/ (produção).
 export const API_ROOT = path.resolve(import.meta.dirname, '../..');
@@ -20,6 +20,12 @@ const envSchema = z.object({
   // Limites por IP (seção 0). Ajustáveis para redes com NAT (R8) e para os testes de ponta a ponta.
   LIMIT_IMPORTS_PER_HOUR: z.coerce.number().int().min(1).default(LIMITS.importsPerIpPerHour),
   LIMIT_ACTIVE_SESSIONS_PER_IP: z.coerce.number().int().min(1).default(LIMITS.activeSessionsPerIp),
+  // Prazo entre fechar a aba e apagar a sessão (seção 0). Encurtado só nos testes de ponta a ponta.
+  SESSION_DELETE_AFTER_CLOSE_MS: z.coerce
+    .number()
+    .int()
+    .min(1000)
+    .default(SESSION_TIMING.deleteAfterCloseMs),
 });
 
 export type AppConfig = {
@@ -32,11 +38,17 @@ export type AppConfig = {
   limits: BusinessLimits;
 };
 
-export type BusinessLimits = { importsPerHour: number; activeSessionsPerIp: number };
+/** Limites e prazos da seção 0 que a API aplica; ajustáveis por variável de ambiente. */
+export type BusinessLimits = {
+  importsPerHour: number;
+  activeSessionsPerIp: number;
+  deleteAfterCloseMs: number;
+};
 
 export const DEFAULT_LIMITS: BusinessLimits = {
   importsPerHour: LIMITS.importsPerIpPerHour,
   activeSessionsPerIp: LIMITS.activeSessionsPerIp,
+  deleteAfterCloseMs: SESSION_TIMING.deleteAfterCloseMs,
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -56,6 +68,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     limits: {
       importsPerHour: e.LIMIT_IMPORTS_PER_HOUR,
       activeSessionsPerIp: e.LIMIT_ACTIVE_SESSIONS_PER_IP,
+      deleteAfterCloseMs: e.SESSION_DELETE_AFTER_CLOSE_MS,
     },
   };
 }

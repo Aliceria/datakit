@@ -1,6 +1,7 @@
 import { createApp } from './app.ts';
 import { loadConfig } from './config/env.ts';
 import { applyPragmas } from './persistence/pragmas.ts';
+import { startCleanup } from './services/cleanupService.ts';
 import { createPrisma } from './persistence/prisma.ts';
 import { log } from './utils/log.ts';
 
@@ -9,13 +10,15 @@ const db = createPrisma(config.databaseUrl);
 const pragmas = await applyPragmas(db);
 log.info('banco pronto', { journalMode: pragmas.journalMode, autoVacuum: pragmas.autoVacuum });
 
-const app = createApp({ config, db });
+const cleanup = startCleanup(db);
+const app = createApp({ config, db, cleanup });
 const server = app.listen(config.port, config.host, () => {
   log.info('DataKit API ouvindo', { host: config.host, port: config.port });
 });
 
 function shutdown(signal: string): void {
   log.info('encerrando', { signal });
+  cleanup.stop();
   server.close(() => {
     void db.$disconnect().finally(() => process.exit(0));
   });

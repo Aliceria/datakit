@@ -1,3 +1,4 @@
+import { continueInNewSession, leaveExpired } from '../../session/sessionManager.ts';
 import { appStore, useApp } from '../../state/appStore.ts';
 import { Modal } from './Modal.tsx';
 
@@ -54,6 +55,41 @@ export function ConfirmDialog() {
       }
     >
       <p className="dk-message-single">{confirm.message}</p>
+    </Modal>
+  );
+}
+
+/** Sessão expirou com a aba aberta e os dados ainda na memória (L14). */
+export function ExpiredDialog() {
+  const expired = useApp((s) => s.expired);
+  if (!expired) return null;
+  return (
+    <Modal
+      title="Sessão expirada"
+      // Esc não descarta os dados da memória: isso exige escolher um dos botões.
+      onClose={() => undefined}
+      footer={
+        <>
+          <button type="button" className="dk-button" onClick={leaveExpired}>
+            Voltar à tela inicial
+          </button>
+          {expired.canRestore && (
+            <button
+              type="button"
+              className="dk-button is-primary"
+              onClick={() => void continueInNewSession()}
+              data-autofocus
+            >
+              Continuar em uma nova sessão
+            </button>
+          )}
+        </>
+      }
+    >
+      <p className="dk-message-single">
+        A sessão expirou e os dados temporários foram apagados do servidor. Esta aba ainda tem os
+        dados na memória: dá para continuar trabalhando com eles numa sessão nova.
+      </p>
     </Modal>
   );
 }

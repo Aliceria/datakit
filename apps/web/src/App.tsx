@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { SUPPORTED_EXTENSIONS } from '@datakit/core';
-import { ConfirmDialog, MessageDialog } from './components/dialogs/MessageDialogs.tsx';
+import {
+  ConfirmDialog,
+  ExpiredDialog,
+  MessageDialog,
+} from './components/dialogs/MessageDialogs.tsx';
 import { PreviewDialog } from './components/dialogs/PreviewDialog.tsx';
 import { LeftPanel } from './components/panels/LeftPanel.tsx';
 import { RightPanel } from './components/panels/RightPanel.tsx';
@@ -134,6 +138,7 @@ export function App() {
       <PreviewDialog />
       <MessageDialog />
       <ConfirmDialog />
+      <ExpiredDialog />
     </div>
   );
 }

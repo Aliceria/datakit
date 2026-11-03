@@ -1,7 +1,22 @@
-import { Router } from 'express';
+import express, { Router } from 'express';
 import { z } from 'zod';
+import type { BusinessLimits } from '../config/env.ts';
 import type { Db } from '../persistence/prisma.ts';
-import { findActiveSession, logId, requireSession } from '../services/sessionService.ts';
+import { reclaimSpace, type CleanupScheduler } from '../services/cleanupService.ts';
+import { assertCanCreateSession } from '../services/importService.ts';
+import {
+  findActiveSession,
+  forkSession,
+  heartbeat,
+  ipHash,
+  isValidInstanceId,
+  isValidToken,
+  logId,
+  releaseSession,
+  requireSession,
+  resumeSession,
+  type ActiveSession,
+} from '../services/sessionService.ts';
 import { ApiError } from '../utils/httpErrors.ts';
 import { log } from '../utils/log.ts';
 
@@ -10,8 +25,102 @@ const chunkParams = z.object({
   chunkIndex: z.coerce.number().int().min(0).max(1_000_000),
 });
 
-export function sessionRouter(db: Db): Router {
+const instanceBody = z.object({ instanceId: z.string().refine(isValidInstanceId) }).strict();
+
+const releaseBody = z
+  .object({
+    sid: z.string().refine(isValidToken),
+    instanceId: z.string().refine(isValidInstanceId),
+  })
+  .strict();
+
+function parseInstance(body: unknown): string {
+  const parsed = instanceBody.safeParse(body);
+  if (!parsed.success) throw new ApiError(400, 'BAD_REQUEST', 'Requisição inválida.');
+  return parsed.data.instanceId;
+}
+
+/** O que o navegador precisa para montar a sessão depois de retomar ou copiar. */
+const sessionState = (
+  session: Pick<ActiveSession, 'snapshotVersion' | 'headSeq' | 'expiresAt'>,
+) => ({
+  snapshotVersion: session.snapshotVersion,
+  headSeq: session.headSeq,
+  expiresAt: session.expiresAt.toISOString(),
+});
+
+export type SessionRouterDeps = { limits: BusinessLimits; cleanup: CleanupScheduler | undefined };
+
+export function sessionRouter(db: Db, deps: SessionRouterDeps): Router {
   const router = Router();
+
+  // F5, reabrir a aba fechada ou voltar pelo bfcache (seção 5.3).
+  router.post('/session/resume', async (req, res, next) => {
+    try {
+      const instanceId = parseInstance(req.body);
+      const session = await requireSession(db, req);
+      await resumeSession(db, session, instanceId);
+      res.json(sessionState(session));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // pagehide: o beacon não envia cabeçalhos, então o token vem no corpo (text/plain).
+  // Sempre 204: a resposta não revela se o token existe.
+  router.post(
+    '/session/release',
+    express.text({ type: 'text/plain', limit: '64kb' }),
+    async (req, res, next) => {
+      try {
+        let body: unknown;
+        try {
+          body = typeof req.body === 'string' ? JSON.parse(req.body) : undefined;
+        } catch {
+          body = undefined;
+        }
+        const parsed = releaseBody.safeParse(body);
+        if (parsed.success) {
+          const deleteAt = await releaseSession(
+            db,
+            parsed.data.sid,
+            parsed.data.instanceId,
+            deps.limits.deleteAfterCloseMs,
+          );
+          if (deleteAt) deps.cleanup?.scheduleAt(deleteAt);
+        }
+        res.status(204).end();
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
+
+  router.post('/session/heartbeat', async (req, res, next) => {
+    try {
+      const instanceId = parseInstance(req.body);
+      const session = await requireSession(db, req);
+      await heartbeat(db, session, instanceId);
+      res.status(204).end();
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // "Duplicar aba" ou instância substituída: cópia independente (seção 5.3).
+  router.post('/session/fork', async (req, res, next) => {
+    try {
+      const instanceId = parseInstance(req.body);
+      const source = await requireSession(db, req);
+      const ip = ipHash(req);
+      await assertCanCreateSession(db, ip, deps.limits.activeSessionsPerIp);
+      const { token, id } = await forkSession(db, source.id, { ip, instanceId });
+      log.info('sessão copiada', { from: logId(source.id), to: logId(id) });
+      res.status(201).json({ sessionId: token, ...sessionState(source) });
+    } catch (err) {
+      next(err);
+    }
+  });
 
   // Manifesto do snapshot atual (gzip pronto, servido sem recompactar).
   router.get('/session/manifest', async (req, res, next) => {
@@ -69,6 +178,7 @@ export function sessionRouter(db: Db): Router {
       const session = await findActiveSession(db, req);
       if (session) {
         await db.session.delete({ where: { id: session.id } });
+        await reclaimSpace(db);
         log.info('sessão encerrada pelo usuário', { session: logId(session.id) });
       }
       res.status(204).end();

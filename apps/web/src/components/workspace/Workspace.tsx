@@ -1,6 +1,7 @@
 import { X } from 'lucide-react';
 import { appStore, activeTable, useApp } from '../../state/appStore.ts';
 import { requestCloseFile } from '../../state/importFlow.ts';
+import { rememberActiveTable, rememberScroll, tableView } from '../../session/viewState.ts';
 import { Grid } from '../grid/Grid.tsx';
 import { EmptyState } from './EmptyState.tsx';
 import './Workspace.css';
@@ -46,7 +47,15 @@ export function Workspace({ onOpen }: Props) {
       {table.columns.length === 0 ? (
         <p className="dk-sheet-empty">Esta aba está vazia.</p>
       ) : (
-        <Grid key={table.id} table={table} inference={manifestTable?.inference ?? {}} />
+        <Grid
+          key={table.id}
+          table={table}
+          inference={manifestTable?.inference ?? {}}
+          initialScroll={tableView(table.id)}
+          onScroll={(top, left) => {
+            rememberScroll(table.id, top, left);
+          }}
+        />
       )}
 
       {isXlsx && (
@@ -60,6 +69,7 @@ export function Workspace({ onOpen }: Props) {
               className={t.hidden ? 'dk-sheettab is-hidden' : 'dk-sheettab'}
               title={t.hidden ? 'Aba oculta no arquivo original' : t.name}
               onClick={() => {
+                rememberActiveTable(t.id);
                 appStore.set({ activeTableId: t.id });
               }}
             >

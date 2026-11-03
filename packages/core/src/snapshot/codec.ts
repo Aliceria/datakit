@@ -127,7 +127,12 @@ export function encodeDocument(doc: DataDocument): {
 }
 
 /** Cria a tabela vazia a partir do manifesto; os blocos são aplicados depois com applyChunk. */
-export function tableFromManifest(m: TableManifest): Table {
+export function tableFromManifest(
+  m: Pick<
+    TableManifest,
+    'id' | 'name' | 'hidden' | 'columns' | 'rowOrder' | 'nextRowId' | 'nextColId'
+  >,
+): Table {
   const data = new Map(m.columns.map((c) => [c.id, createColumnData(m.nextRowId, STATE_ABSENT)]));
   return {
     id: m.id,

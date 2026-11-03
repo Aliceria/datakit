@@ -52,6 +52,9 @@ export type ConfirmState = {
   onConfirm: () => void;
 };
 
+/** Estados da barra inferior (seção 5.3). */
+export type SessionStatus = 'none' | 'saving' | 'saved' | 'offline' | 'expired';
+
 export type AppState = {
   doc: LoadedDocument | undefined;
   activeTableId: string | undefined;
@@ -60,6 +63,9 @@ export type AppState = {
   preview: PreviewState | undefined;
   message: MessageState | undefined;
   confirm: ConfirmState | undefined;
+  sessionStatus: SessionStatus;
+  /** Sessão expirou com a aba aberta; canRestore quando ainda há dados na memória (L14). */
+  expired: { canRestore: boolean } | undefined;
 };
 
 export const appStore = createStore<AppState>({
@@ -69,6 +75,8 @@ export const appStore = createStore<AppState>({
   preview: undefined,
   message: undefined,
   confirm: undefined,
+  sessionStatus: 'none',
+  expired: undefined,
 });
 
 export const useApp = <S>(selector: (state: AppState) => S): S => useStore(appStore, selector);

@@ -56,7 +56,14 @@ export async function assertCanCreateSession(db: Db, ip: string, max: number): P
  */
 export async function saveDocument(
   db: Db,
-  params: { sessionId?: string; ip: string; document: EncodedDocument; sourceMeta: string },
+  params: {
+    sessionId?: string;
+    ip: string;
+    /** Instância (carregamento de página) que fez a importação; passa a ser a ativa. */
+    instanceId?: string | undefined;
+    document: EncodedDocument;
+    sourceMeta: string;
+  },
 ): Promise<{ token?: string; sessionId: string; version: number }> {
   const { document } = params;
   const bytesUsed =
@@ -84,6 +91,7 @@ export async function saveDocument(
           exportState: '{}',
           bytesUsed,
           lastSeenAt: new Date(),
+          ...(params.instanceId ? { activeInstanceId: params.instanceId } : {}),
         },
       });
       return next;
@@ -101,6 +109,7 @@ export async function saveDocument(
         expiresAt: new Date(now.getTime() + SESSION_TIMING.maxDurationMs),
         lastSeenAt: now,
         snapshotVersion: 1,
+        activeInstanceId: params.instanceId ?? null,
         sourceMeta: params.sourceMeta,
         bytesUsed,
       },

@@ -5,25 +5,30 @@ import type {
   ImportWarning,
   PreviewTable,
 } from '@datakit/core';
+import { instanceId } from '../session/tabIdentity.ts';
 
 // Cliente da API. O ID da sessão é credencial: vai só no cabeçalho, nunca na URL (seção 5.2).
 
 const SESSION_KEY = 'dk.sid';
 
+/** Cópia em memória: sem sessionStorage (modo restrito), a sessão vive só nesta página. */
+let memoryToken: string | null = null;
+
 export function getSessionToken(): string | null {
   try {
-    return sessionStorage.getItem(SESSION_KEY);
+    return sessionStorage.getItem(SESSION_KEY) ?? memoryToken;
   } catch {
-    return null;
+    return memoryToken;
   }
 }
 
 export function setSessionToken(token: string | null): void {
+  memoryToken = token;
   try {
     if (token) sessionStorage.setItem(SESSION_KEY, token);
     else sessionStorage.removeItem(SESSION_KEY);
   } catch {
-    // Sem sessionStorage (modo restrito do navegador): a sessão vive só na memória desta página.
+    // Fica só a cópia em memória.
   }
 }
 
@@ -42,6 +47,7 @@ async function request(path: string, init: RequestInit = {}): Promise<Response> 
   const headers = new Headers(init.headers);
   const token = getSessionToken();
   if (token) headers.set('x-session-id', token);
+  headers.set('x-instance-id', instanceId);
   let res: Response;
   try {
     res = await fetch(path, { ...init, headers });
@@ -135,4 +141,57 @@ export async function fetchChunk(tableId: string, index: number): Promise<ChunkP
 
 export async function deleteSession(): Promise<void> {
   await request('/api/session', { method: 'DELETE' });
+}
+
+// --- Ciclo de vida da sessão (seção 5) --------------------------------------------------------
+
+export type SessionState = { snapshotVersion: number; headSeq: number; expiresAt: string };
+
+const jsonBody = (body: unknown): RequestInit => ({
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify(body),
+});
+
+export async function resumeSession(): Promise<SessionState> {
+  const res = await request('/api/session/resume', jsonBody({ instanceId }));
+  return (await res.json()) as SessionState;
+}
+
+export async function sendHeartbeat(): Promise<void> {
+  await request('/api/session/heartbeat', jsonBody({ instanceId }));
+}
+
+/** Cópia independente da sessão atual; devolve o token novo. */
+export async function forkSession(): Promise<string> {
+  const res = await request('/api/session/fork', jsonBody({ instanceId }));
+  return ((await res.json()) as { sessionId: string }).sessionId;
+}
+
+/** "Continuar em uma nova sessão" (L14): envia o documento da memória, já compactado. */
+export async function restoreSession(gzipped: Blob): Promise<ImportResponse> {
+  const res = await request('/api/session/restore', {
+    method: 'POST',
+    headers: { 'content-type': 'application/octet-stream' },
+    body: gzipped,
+  });
+  return (await res.json()) as ImportResponse;
+}
+
+/**
+ * pagehide: pede a exclusão agendada. O beacon não manda cabeçalhos, então o token vai no corpo,
+ * como text/plain (sem preflight). Se o beacon não for aceito, tenta fetch com keepalive.
+ */
+export function sendRelease(): void {
+  const token = getSessionToken();
+  if (!token) return;
+  const body = JSON.stringify({ sid: token, instanceId });
+  const blob = new Blob([body], { type: 'text/plain;charset=UTF-8' });
+  if (navigator.sendBeacon('/api/session/release', blob)) return;
+  void fetch('/api/session/release', {
+    method: 'POST',
+    headers: { 'content-type': 'text/plain;charset=UTF-8' },
+    body,
+    keepalive: true,
+  }).catch(() => undefined);
 }

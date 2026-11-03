@@ -19,7 +19,7 @@ import {
   saveDocument,
   takeStaged,
 } from '../services/importService.ts';
-import { findActiveSession, ipHash, logId } from '../services/sessionService.ts';
+import { findActiveSession, ipHash, logId, readInstanceId } from '../services/sessionService.ts';
 import { ApiError } from '../utils/httpErrors.ts';
 import { log } from '../utils/log.ts';
 import { parseInWorker } from '../workers/pool.ts';
@@ -111,6 +111,10 @@ function validateNameAndSize(req: Request): string {
 
 const rawBody = express.raw({ type: 'application/octet-stream', limit: LIMITS.maxFileBytes });
 
+/** Documento compactado de até 3 milhões de células. */
+const RESTORE_MAX_BODY = 64 * 1024 * 1024;
+const restoreBody = express.raw({ type: 'application/octet-stream', limit: RESTORE_MAX_BODY });
+
 /** Cópia do corpo num ArrayBuffer próprio, que é transferido ao worker e some daqui. */
 function bodyBytes(req: Request): Uint8Array {
   const body: unknown = req.body;
@@ -143,6 +147,7 @@ async function finishImport(
   const saved = await saveDocument(db, {
     ...(existing ? { sessionId: existing.id } : {}),
     ip,
+    instanceId: readInstanceId(req),
     document,
     sourceMeta: sourceMeta(fileName, document.summary),
   });
@@ -228,6 +233,46 @@ export function importRouter(db: Db, limits: BusinessLimits): Router {
           withHeader: result.staged.withHeader.summary.warnings,
           withoutHeader: result.staged.withoutHeader.summary.warnings,
         },
+      });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // "Continuar em uma nova sessão" (L14): a sessão expirou, mas a aba ainda tem os dados.
+  // O corpo é o documento no formato do snapshot, compactado com gzip pelo navegador.
+  router.post('/session/restore', async (req, res, next) => {
+    try {
+      if (Number(req.header('content-length') ?? '0') > RESTORE_MAX_BODY) {
+        throw new ApiError(413, 'PAYLOAD_TOO_LARGE', 'Os dados são grandes demais para continuar.');
+      }
+      await assertStorageAvailable(db);
+      await new Promise<void>((resolve, reject) => {
+        restoreBody(req, res, (err?: unknown) => {
+          if (err)
+            reject(err instanceof Error ? err : new Error('Falha ao ler os dados enviados.'));
+          else resolve();
+        });
+      });
+      const bytes = bodyBytes(req);
+      const ip = ipHash(req);
+      await assertCanCreateSession(db, ip, limits.activeSessionsPerIp);
+      await registerImport(db, ip, limits.importsPerHour);
+      const result = await parseInWorker({ kind: 'restore', bytes });
+      if (!result.ok) throw asApiError(result.error);
+      if (result.kind !== 'import') throw new Error('Resposta inesperada do worker');
+      const saved = await saveDocument(db, {
+        ip,
+        instanceId: readInstanceId(req),
+        document: result.document,
+        sourceMeta: sourceMeta(result.document.summary.fileName, result.document.summary),
+      });
+      log.info('sessão restaurada a partir da aba', { session: logId(saved.sessionId) });
+      res.status(201).json({
+        sessionId: saved.token,
+        version: saved.version,
+        warnings: [],
+        tables: result.document.summary.tables,
       });
     } catch (err) {
       next(err);
