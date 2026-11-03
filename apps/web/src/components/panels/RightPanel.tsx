@@ -1,4 +1,5 @@
 import { PanelSection } from '../common/PanelSection.tsx';
+import { DataTools } from './DataTools.tsx';
 import { FiltersSort } from './FiltersSort.tsx';
 import { GoTo } from './GoTo.tsx';
 import { SearchReplace } from './SearchReplace.tsx';
@@ -6,7 +7,6 @@ import './Panel.css';
 
 type Props = { open: boolean };
 
-// A seção "Tratamento de dados" entra com as ferramentas (Etapa 7).
 export function RightPanel({ open }: Props) {
   return (
     <aside
@@ -22,6 +22,9 @@ export function RightPanel({ open }: Props) {
       </PanelSection>
       <PanelSection title="Filtros e ordenação">
         <FiltersSort />
+      </PanelSection>
+      <PanelSection title="Tratamento de dados">
+        <DataTools />
       </PanelSection>
     </aside>
   );

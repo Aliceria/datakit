@@ -1,6 +1,15 @@
-import { FolderOpen, PanelLeft, PanelRight, Redo2, Undo2 } from 'lucide-react';
+import { useState } from 'react';
+import { FolderOpen, PanelLeft, PanelRight, Redo2, Undo2, Wrench } from 'lucide-react';
 import { PRODUCT } from '@datakit/core';
-import { useApp } from '../../state/appStore.ts';
+import { activeTable, appStore, useApp } from '../../state/appStore.ts';
+import {
+  COLUMN_TOOLS,
+  identifyInconsistent,
+  locateBlanks,
+  openTool,
+  TOOL_TITLES,
+} from '../../state/tools.ts';
+import { ContextMenu, type MenuItem } from '../common/ContextMenu.tsx';
 import { redo, undo } from '../../state/editor.ts';
 import { ToolbarButton } from './ToolbarButton.tsx';
 import './Toolbar.css';
@@ -11,8 +20,56 @@ type Props = {
   onOpen: () => void;
 };
 
-// Exportar, Ferramentas e Ajuda entram junto com as funcionalidades (Etapas 6 a 8).
+// Exportar e Ajuda entram junto com as funcionalidades (Etapa 8).
+/** Itens do menu Ferramentas (seção 8); os mesmos da seção "Tratamento de dados". */
+function toolItems(): MenuItem[] {
+  const state = appStore.get();
+  const table = activeTable(state);
+  const off = !table || state.sessionStatus === 'expired';
+  const hasCols = state.selection !== undefined;
+  const item = (label: string, onSelect: () => void, disabled = off): MenuItem => ({
+    kind: 'item',
+    label,
+    onSelect,
+    disabled,
+  });
+  return [
+    item(`${TOOL_TITLES.duplicates}…`, () => {
+      openTool('duplicates');
+    }),
+    item(`${TOOL_TITLES.emptyRows}…`, () => {
+      openTool('emptyRows');
+    }),
+    item(
+      'Localizar vazios',
+      () => {
+        if (table) locateBlanks(table.id, undefined);
+      },
+      !table,
+    ),
+    item(
+      'Identificar inconsistentes',
+      () => {
+        if (table) identifyInconsistent(table.id);
+      },
+      !table,
+    ),
+    { kind: 'separator' },
+    ...COLUMN_TOOLS.map((kind) =>
+      item(
+        `${TOOL_TITLES[kind]}…`,
+        () => {
+          openTool(kind);
+        },
+        off || !hasCols,
+      ),
+    ),
+  ];
+}
+
 export function Toolbar({ drawer, onToggleDrawer, onOpen }: Props) {
+  const [menu, setMenu] = useState<{ x: number; y: number } | undefined>(undefined);
+  const hasDoc = useApp((s) => s.doc !== undefined);
   // A revisão muda a cada operação: os rótulos e o estado dos botões acompanham.
   const undoLabel = useApp((s) =>
     s.revision >= 0 && s.sessionStatus !== 'expired'
@@ -50,6 +107,30 @@ export function Toolbar({ drawer, onToggleDrawer, onOpen }: Props) {
         disabled={!redoLabel}
         onClick={redo}
       />
+      <ToolbarButton
+        icon={Wrench}
+        label="Ferramentas"
+        className="dk-toolbar-wide"
+        title="Ferramentas de tratamento de dados"
+        aria-haspopup="menu"
+        aria-expanded={menu !== undefined}
+        disabled={!hasDoc}
+        onClick={(e) => {
+          const r = e.currentTarget.getBoundingClientRect();
+          setMenu({ x: r.left, y: r.bottom });
+        }}
+      />
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          label="Ferramentas"
+          items={toolItems()}
+          onClose={() => {
+            setMenu(undefined);
+          }}
+        />
+      )}
       <div className="dk-toolbar-drawers">
         <ToolbarButton
           icon={PanelLeft}

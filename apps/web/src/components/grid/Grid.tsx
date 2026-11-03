@@ -8,7 +8,6 @@ import {
   classifyValue,
   type CellState,
   type ColumnInference,
-  type ColumnType,
   type NativeCode,
   type Table,
   type TableMarks,
@@ -45,6 +44,7 @@ import { Modal } from '../dialogs/Modal.tsx';
 import { CellEditor, type EditorMove } from './CellEditor.tsx';
 import { cellTitle, renderCell } from './cellDisplay.tsx';
 import { initialColumnWidths, rowNumberWidth } from './columnWidths.ts';
+import { TYPE_BADGE, TYPE_LABEL } from './typeLabels.ts';
 import './Grid.css';
 
 const ROW_HEIGHT = 22;
@@ -52,24 +52,6 @@ const HEADER_HEIGHT = 26;
 const MIN_WIDTH = 40;
 const MAX_WIDTH = 800;
 const CHAR_WIDTH = 7.8;
-
-const TYPE_BADGE: Record<ColumnType, string> = {
-  text: 'abc',
-  number: '123',
-  date: 'data',
-  boolean: 'bool',
-  json: 'json',
-  mixed: 'misto',
-};
-
-const TYPE_LABEL: Record<ColumnType, string> = {
-  text: 'texto',
-  number: 'número',
-  date: 'data',
-  boolean: 'booleano',
-  json: 'JSON',
-  mixed: 'misto',
-};
 
 type Props = {
   table: Table;
@@ -90,6 +72,8 @@ export function Grid({ table, inference, marks, readOnly }: Props) {
   const editing = useApp((s) => s.editing);
   useApp((s) => s.revision);
   const view = useApp((s) => s.views[table.id]);
+  // Valores que não puderam ser convertidos (seção 8) ficam destacados.
+  const flagged = useApp((s) => (s.flagged?.tableId === table.id ? s.flagged.cells : undefined));
   // Linhas visíveis, na ordem mostrada (filtros e ordenação só mudam a vista).
   const viewRows = view?.rowIds ?? table.rowOrder;
   const dataPosition = useMemo(
@@ -672,6 +656,9 @@ export function Grid({ table, inference, marks, readOnly }: Props) {
                   }}
                   onContextMenu={(e) => {
                     e.preventDefault();
+                    // Clique direito na seta ou no funil não passa pelo mousedown do cabeçalho:
+                    // o menu tem de valer para esta coluna, e não para a selecionada antes.
+                    if (!selected || selection?.mode !== 'columns') selectColumns(vc.index);
                     setMenu({ x: e.clientX, y: e.clientY, kind: 'column' });
                   }}
                 >
@@ -774,6 +761,7 @@ export function Grid({ table, inference, marks, readOnly }: Props) {
                   if (selected) className += ' is-selected';
                   if (isFocus) className += ' is-focus';
                   if (edited) className += ' is-edited';
+                  if (flagged?.has(`${String(rowId)}:${column.id}`)) className += ' is-flagged';
                   return (
                     <div
                       key={column.id}

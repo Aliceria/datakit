@@ -53,7 +53,7 @@ const chunkColumn = z
   .object({
     s: z.string().regex(/^[vna]*$/),
     r: z.array(z.string().nullable()),
-    t: z.string().regex(/^[0-6]*$/),
+    t: z.string().regex(/^[0-7]*$/),
     x: z
       .record(z.string(), z.object({ formula: z.string().max(10_000).optional() }).strict())
       .optional(),

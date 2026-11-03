@@ -249,7 +249,15 @@ async function loadOnce(): Promise<void> {
   const remembered = tables.find((t) => t.id === view.activeTableId);
   const firstVisible = tables.find((t) => !t.hidden) ?? tables[0];
   const activeTableId = (remembered ?? firstVisible)?.id;
-  appStore.set({ doc, activeTableId, busy: undefined, selection: undefined, editing: undefined });
+  appStore.set({
+    doc,
+    activeTableId,
+    busy: undefined,
+    selection: undefined,
+    editing: undefined,
+    flagged: undefined,
+    tool: undefined,
+  });
 
   const pending = startQueue(key, headSeq, queueHandlers);
   if (pending.length > 0) replayPending(pending);

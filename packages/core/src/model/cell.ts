@@ -15,6 +15,8 @@ export const NATIVE = {
   date: 4,
   error: 5,
   json: 6,
+  /** Convertido para texto pelo usuário (seção 8): não é mais interpretado como número ou data. */
+  text: 7,
 } as const;
 export type NativeType = keyof typeof NATIVE;
 export type NativeCode = (typeof NATIVE)[NativeType];
@@ -27,6 +29,7 @@ const NATIVE_NAMES: readonly NativeType[] = [
   'date',
   'error',
   'json',
+  'text',
 ];
 
 export function nativeName(code: number): NativeType {

@@ -32,6 +32,8 @@ async function openCsv(page: Page, name: string, rows: number) {
   await expect(dialog(page).getByRole('button', { name: 'Abrir' })).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(status(page)).toHaveText('Salvo');
+  // "Salvo" aparece quando a sessão é criada; sob carga, a grade ainda pode estar carregando.
+  await expect(page.getByRole('gridcell', { name: 'linha 1', exact: true })).toBeVisible();
 }
 
 /**

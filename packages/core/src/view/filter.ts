@@ -13,7 +13,18 @@ export type TextOp = 'contains' | 'notContains' | 'equals' | 'startsWith' | 'end
 export type NumberOp = 'eq' | 'ne' | 'gt' | 'ge' | 'lt' | 'le' | 'between';
 export type DateOp = 'before' | 'after' | 'between';
 export type StateOp =
-  'empty' | 'null' | 'absent' | 'notEmpty' | 'isNumber' | 'isText' | 'isDate' | 'inconsistent';
+  | 'empty'
+  | 'blank'
+  | 'null'
+  | 'absent'
+  | 'notEmpty'
+  | 'isNumber'
+  | 'isText'
+  | 'isDate'
+  | 'inconsistent';
+
+/** Filtro de estado aplicado a qualquer coluna (Localizar vazios e Identificar inconsistentes). */
+export const ANY_COLUMN = '*';
 
 export type FilterCondition =
   | { kind: 'text'; op: TextOp; value: string; caseSensitive: boolean }
@@ -48,6 +59,7 @@ export const DATE_OP_LABELS: Record<DateOp, string> = {
 };
 export const STATE_OP_LABELS: Record<StateOp, string> = {
   empty: 'é vazio',
+  blank: 'é vazio, nulo ou ausente',
   null: 'é nulo',
   absent: 'é ausente',
   notEmpty: 'não é vazio',
@@ -86,6 +98,13 @@ export function compileFilter(
   filter: ColumnFilter,
   inference: Record<string, ColumnInference>,
 ): (rowId: number) => boolean {
+  if (filter.colId === ANY_COLUMN) {
+    // Qualquer coluna atende: as colunas se combinam com OU.
+    const tests = table.columns.map((col) =>
+      compileFilter(table, { colId: col.id, condition: filter.condition }, inference),
+    );
+    return (rowId) => tests.some((test) => test(rowId));
+  }
   const data = table.data.get(filter.colId);
   if (!data) return () => true;
   const info = inference[filter.colId] ?? TEXT_INFERENCE;
@@ -158,6 +177,8 @@ export function compileFilter(
         switch (c.op) {
           case 'empty':
             return state === STATE_VALUE && raw.trim() === '';
+          case 'blank':
+            return state !== STATE_VALUE || raw.trim() === '';
           case 'null':
             return state === STATE_NULL;
           case 'absent':
@@ -187,7 +208,7 @@ export function filterRows(
   inference: Record<string, ColumnInference>,
 ): number[] {
   const tests = filters
-    .filter((f) => table.data.has(f.colId))
+    .filter((f) => f.colId === ANY_COLUMN || table.data.has(f.colId))
     .map((f) => compileFilter(table, f, inference));
   if (tests.length === 0) return [...rowIds];
   return rowIds.filter((rowId) => tests.every((test) => test(rowId)));
@@ -208,6 +229,8 @@ export function describeFilter(filter: ColumnFilter, columnName: string): string
         ? `${columnName} entre ${c.value} e ${c.value2 ?? ''}`
         : `${columnName} ${DATE_OP_LABELS[c.op]} ${c.value}`;
     case 'state':
-      return `${columnName} ${STATE_OP_LABELS[c.op]}`;
+      return filter.colId === ANY_COLUMN
+        ? `alguma coluna ${STATE_OP_LABELS[c.op]}`
+        : `${columnName} ${STATE_OP_LABELS[c.op]}`;
   }
 }

@@ -3,7 +3,7 @@
 Editor web para importar, visualizar, editar, limpar e converter arquivos CSV, XLSX e JSON direto no navegador, sem cadastro.
 Endereço oficial: https://datakit.rking.com.br
 
-> **Estado atual:** importação de CSV, XLSX e JSON, grade editável (seleção, teclado, copiar e colar, linhas e colunas, desfazer e refazer persistentes) sessão temporária completa, filtros, ordenação, busca e substituição. Tratamento de dados e exportação ainda não existem.
+> **Estado atual:** importação de CSV, XLSX e JSON, grade editável (seleção, teclado, copiar e colar, linhas e colunas, desfazer e refazer persistentes) sessão temporária completa, filtros, ordenação, busca e substituição, tratamento de dados e inspetores de coluna e de célula. A exportação ainda não existe.
 
 ## Requisitos
 

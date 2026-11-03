@@ -1,0 +1,67 @@
+.dk-tools-title {
+  margin: 8px 0 4px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.dk-tools-title:first-child {
+  margin-top: 0;
+}
+
+.dk-tools-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.dk-tools-grid .dk-button {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dk-tools-cols {
+  margin: 0 0 6px;
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Diálogo das ferramentas */
+.dk-tool-desc,
+.dk-tool-cols {
+  margin: 0 0 10px;
+  color: var(--text-muted);
+}
+
+.dk-tool-cols {
+  color: var(--text);
+}
+
+.dk-tool-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.dk-tool-checklist {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 4px 12px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.dk-tool-warn {
+  margin: 0 0 10px;
+  color: var(--warning);
+}
+
+.dk-tool-summary {
+  margin-top: 4px;
+}

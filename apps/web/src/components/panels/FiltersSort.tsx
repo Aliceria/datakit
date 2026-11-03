@@ -1,5 +1,5 @@
 import { X } from 'lucide-react';
-import { describeFilter, planApplyOrder } from '@datakit/core';
+import { ANY_COLUMN, describeFilter, planApplyOrder } from '@datakit/core';
 import { activeTable, useApp } from '../../state/appStore.ts';
 import { execute } from '../../state/editor.ts';
 import {
@@ -20,7 +20,10 @@ export function FiltersSort() {
   if (!table) return <p className="dk-section-empty">Nenhum arquivo aberto.</p>;
   const filters = view?.spec.filters ?? [];
   const sort = view?.spec.sort ?? [];
-  const name = (colId: string) => table.columns.find((c) => c.id === colId)?.name ?? colId;
+  const name = (colId: string) =>
+    colId === ANY_COLUMN
+      ? 'todas as colunas'
+      : (table.columns.find((c) => c.id === colId)?.name ?? colId);
 
   if (filters.length === 0 && sort.length === 0) {
     return (

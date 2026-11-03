@@ -5,6 +5,7 @@ import {
   ExpiredDialog,
   MessageDialog,
 } from './components/dialogs/MessageDialogs.tsx';
+import { ToolDialog } from './components/dialogs/ToolDialog.tsx';
 import { PreviewDialog } from './components/dialogs/PreviewDialog.tsx';
 import { LeftPanel } from './components/panels/LeftPanel.tsx';
 import { FOCUS_GOTO_EVENT } from './components/panels/GoTo.tsx';
@@ -176,6 +177,7 @@ export function App() {
       <PreviewDialog />
       <MessageDialog />
       <ConfirmDialog />
+      <ToolDialog />
       <ExpiredDialog />
     </div>
   );

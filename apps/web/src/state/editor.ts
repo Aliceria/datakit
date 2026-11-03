@@ -75,12 +75,14 @@ export function execute(label: string, effect: Effect): boolean {
 export function undo(): void {
   const entry = appStore.get().doc?.history.undo.at(-1);
   if (!entry) return;
+  appStore.set({ flagged: undefined });
   run({ seq: nextSeq(), opId: crypto.randomUUID(), kind: 'undo' }, entry.inverse);
 }
 
 export function redo(): void {
   const entry = appStore.get().doc?.history.redo.at(-1);
   if (!entry) return;
+  appStore.set({ flagged: undefined });
   run({ seq: nextSeq(), opId: crypto.randomUUID(), kind: 'redo' }, entry.effect);
 }
 

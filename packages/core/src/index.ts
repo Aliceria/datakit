@@ -48,12 +48,14 @@ export {
 } from './formats/json/jsonParser.ts';
 
 export { computeTableStats, createStatsAccumulator, type TableStats } from './stats/tableStats.ts';
+export * from './stats/columnProfile.ts';
 export * from './snapshot/codec.ts';
 
 export * from './ops/effects.ts';
 export * from './ops/history.ts';
 export * from './ops/nativeType.ts';
 export * from './ops/planners.ts';
+export * from './ops/tools.ts';
 export { parseTsv, toTsv } from './clipboard/tsv.ts';
 export * from './util/decimal.ts';
 export * from './view/facts.ts';

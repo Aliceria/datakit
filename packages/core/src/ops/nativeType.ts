@@ -68,7 +68,8 @@ export function nativeAfterEdit(
   columnNative: NativeCode,
 ): NativeCode {
   const candidate = previous !== NATIVE.none ? previous : columnNative;
-  if (candidate === NATIVE.none || candidate === NATIVE.string) return candidate;
+  if (candidate === NATIVE.none || candidate === NATIVE.string || candidate === NATIVE.text)
+    return candidate;
   if (compatible(candidate, raw)) return candidate;
   // Incompatível: numa origem tipada vira texto; nunca muda o texto para caber no tipo.
   return NATIVE.string;

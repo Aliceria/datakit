@@ -15,7 +15,7 @@ const cellValue = z
   .object({
     s: z.union([z.literal(0), z.literal(1), z.literal(2)]),
     r: z.string().optional(),
-    t: z.number().int().min(0).max(6),
+    t: z.number().int().min(0).max(7),
     x: z
       .object({ formula: z.string().max(100_000).optional() })
       .strict()

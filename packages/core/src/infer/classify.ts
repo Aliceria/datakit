@@ -53,6 +53,9 @@ export function classifyValue(
       return { kind: 'json', dateFormat: null };
     case NATIVE.error:
       return TEXT;
+    case NATIVE.text:
+      // Convertido para texto pelo usuário (seção 8): não é mais interpretado.
+      return TEXT;
     default:
       break;
   }

@@ -1,4 +1,5 @@
 import {
+  ANY_COLUMN,
   FilterError,
   filterRows,
   sortRows,
@@ -99,7 +100,7 @@ export function restoreViews(): void {
     if (!saved || !isActiveSpec(saved)) continue;
     // Filtros de colunas que não existem mais são descartados.
     const spec: ViewSpec = {
-      filters: saved.filters.filter((f) => table.data.has(f.colId)),
+      filters: saved.filters.filter((f) => f.colId === ANY_COLUMN || table.data.has(f.colId)),
       sort: saved.sort.filter((k) => table.data.has(k.colId)),
     };
     try {
@@ -138,7 +139,7 @@ export function adjustViews(tableIds: Iterable<string>): void {
     const present = new Set(table.rowOrder);
     // Colunas excluídas saem dos critérios.
     const spec: ViewSpec = {
-      filters: view.spec.filters.filter((f) => table.data.has(f.colId)),
+      filters: view.spec.filters.filter((f) => f.colId === ANY_COLUMN || table.data.has(f.colId)),
       sort: view.spec.sort.filter((k) => table.data.has(k.colId)),
     };
     const rowIds = view.rowIds.filter((id) => present.has(id));

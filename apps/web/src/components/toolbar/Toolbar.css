@@ -71,6 +71,11 @@
   .dk-toolbar-drawers {
     display: flex;
   }
+
+  /* Na gaveta, as ferramentas ficam na seção "Tratamento de dados" do painel direito. */
+  .dk-toolbar-wide {
+    display: none;
+  }
 }
 
 @media (max-width: 699px) {

@@ -1,10 +1,10 @@
 import { PanelSection } from '../common/PanelSection.tsx';
 import { FileInfo } from './FileInfo.tsx';
+import { CellInspector, ColumnInspector } from './Inspectors.tsx';
 import './Panel.css';
 
 type Props = { open: boolean };
 
-// Inspetores de coluna e de célula: Etapa 7.
 export function LeftPanel({ open }: Props) {
   return (
     <aside
@@ -16,10 +16,10 @@ export function LeftPanel({ open }: Props) {
         <FileInfo />
       </PanelSection>
       <PanelSection title="Inspetor de coluna">
-        <p className="dk-section-empty">Nenhuma coluna selecionada.</p>
+        <ColumnInspector />
       </PanelSection>
       <PanelSection title="Inspetor de célula">
-        <p className="dk-section-empty">Nenhuma célula selecionada.</p>
+        <CellInspector />
       </PanelSection>
     </aside>
   );
