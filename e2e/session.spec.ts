@@ -34,6 +34,15 @@ async function openCsv(page: Page, name: string, rows: number) {
   await expect(status(page)).toHaveText('Salvo');
 }
 
+/**
+ * Sai do DataKit nesta aba (dispara o pagehide e o beacon de exclusão agendada) navegando para
+ * outra página do mesmo site: o sessionStorage da aba continua, como num Ctrl+Shift+T.
+ * Uma navegação para about:blank não serve: no Firefox ela não entrega o beacon.
+ */
+async function leavePage(page: Page) {
+  await page.goto('/api/health');
+}
+
 /** Dispara um heartbeat imediato, como ao voltar para a aba. */
 async function wakeUp(page: Page) {
   await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
@@ -130,7 +139,7 @@ test('reabrir a aba fechada dentro do prazo restaura a sessão', async ({ page }
   await openCsv(page, 'reaberto.csv', 4);
   const before = await sid(page);
   // Sair da página dispara o pagehide (beacon de exclusão agendada); o sessionStorage da aba fica.
-  await page.goto('about:blank');
+  await leavePage(page);
   await page.goto('/');
   await expect(page.getByRole('status').last()).toContainText('4 linhas');
   expect(await sid(page)).toBe(before);
@@ -145,7 +154,7 @@ test('reabrir a aba fora do prazo mostra "Sessão expirada" e volta à tela inic
   page,
 }) => {
   await openCsv(page, 'perdido.csv', 2);
-  await page.goto('about:blank');
+  await leavePage(page);
   await page.waitForTimeout(GRACE_MS + 1500);
   await page.goto('/');
   await expect(dialog(page)).toContainText('Sessão expirada');

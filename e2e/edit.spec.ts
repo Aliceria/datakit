@@ -57,14 +57,27 @@ async function paste(page: Page, text: string) {
   }, text);
 }
 
-/** Copia como o navegador faria e devolve o texto que a página pôs na área de transferência. */
+/**
+ * Copia como o navegador faria e devolve o texto que a página pôs na área de transferência.
+ * O texto é lido durante o próprio evento: o Firefox protege os dados de um evento sintético
+ * depois que ele termina.
+ */
 async function copy(page: Page): Promise<string> {
   return grid(page).evaluate((el) => {
-    const data = new DataTransfer();
+    let text = '';
+    const read = (e: Event) => {
+      text = (e as ClipboardEvent).clipboardData?.getData('text/plain') ?? '';
+    };
+    document.addEventListener('copy', read);
     el.dispatchEvent(
-      new ClipboardEvent('copy', { clipboardData: data, bubbles: true, cancelable: true }),
+      new ClipboardEvent('copy', {
+        clipboardData: new DataTransfer(),
+        bubbles: true,
+        cancelable: true,
+      }),
     );
-    return data.getData('text/plain');
+    document.removeEventListener('copy', read);
+    return text;
   });
 }
 
