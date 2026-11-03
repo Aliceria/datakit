@@ -1,0 +1,42 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 26
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Formatação, lint, tipos, testes e build
+        run: npm run check
+
+      - name: Navegadores do Playwright
+        run: npx playwright install --with-deps chromium firefox webkit
+
+      - name: Testes de ponta a ponta (Chromium, Firefox, WebKit)
+        run: npx playwright test
+
+      - name: Guardar resultados dos testes que falharam
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: test-results/
+          retention-days: 7

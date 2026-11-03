@@ -1,0 +1,130 @@
+.dk-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgb(0 0 0 / 0.55);
+}
+
+.dk-modal {
+  display: flex;
+  flex-direction: column;
+  width: min(480px, 100%);
+  max-height: calc(100vh - 32px);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+}
+
+.dk-modal.is-wide {
+  width: min(960px, 100%);
+}
+
+.dk-modal-title {
+  margin: 0;
+  padding: 5px 10px;
+  background: var(--bg-bar);
+  font-size: var(--font-size);
+  font-weight: 700;
+  text-align: center;
+}
+
+.dk-modal-body {
+  min-height: 0;
+  overflow: auto;
+  padding: 10px 12px;
+}
+
+.dk-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+}
+
+/* Botões planos, retangulares, borda fina (seção 11.1). */
+.dk-button {
+  min-width: 96px;
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-bar);
+  cursor: pointer;
+}
+
+.dk-button:hover:not(:disabled) {
+  border-color: var(--text-muted);
+}
+
+.dk-button.is-primary {
+  border-color: var(--accent);
+}
+
+.dk-button.is-danger {
+  border-color: var(--danger);
+}
+
+.dk-button:disabled {
+  color: var(--text-disabled);
+  cursor: default;
+}
+
+.dk-message-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.dk-message-list li + li {
+  margin-top: 6px;
+}
+
+.dk-message-single {
+  margin: 0;
+}
+
+.dk-tone-error {
+  color: var(--danger);
+}
+
+.dk-tone-warning {
+  color: var(--warning);
+}
+
+/* Formulário em linhas: rótulo à esquerda, campo à direita, só a borda inferior (seção 11.1). */
+.dk-form-row {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-height: 26px;
+}
+
+.dk-form-row label {
+  color: var(--text-muted);
+}
+
+.dk-field {
+  width: 100%;
+  padding: 3px 4px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-input);
+  color: var(--text);
+  font: inherit;
+}
+
+.dk-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+}
+
+.dk-checkbox input {
+  margin: 0;
+  accent-color: var(--accent);
+}

@@ -19,6 +19,15 @@
   font-weight: 700;
 }
 
+.dk-empty-open {
+  padding: 0 6px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--bg-bar);
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .dk-empty-limits {
   margin: 0 0 12px;
 }

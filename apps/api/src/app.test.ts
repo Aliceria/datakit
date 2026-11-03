@@ -4,6 +4,7 @@ import path from 'node:path';
 import type { Server } from 'node:http';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from './app.ts';
+import { DEFAULT_LIMITS } from './config/env.ts';
 import { applyPragmas, readPragmaState } from './persistence/pragmas.ts';
 import { createPrisma, type Db } from './persistence/prisma.ts';
 import { createTestDatabase } from './test/testDb.ts';
@@ -24,7 +25,10 @@ beforeAll(async () => {
 
   db = createPrisma(testDb.url);
   await applyPragmas(db);
-  const app = createApp({ config: { isProduction: false, trustProxy: 0, webDistDir }, db });
+  const app = createApp({
+    config: { isProduction: false, trustProxy: 0, webDistDir, limits: DEFAULT_LIMITS },
+    db,
+  });
   server = app.listen(0, '127.0.0.1');
   await new Promise<void>((resolve) => server.once('listening', resolve));
   baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;

@@ -34,5 +34,8 @@ Thumbs.db
 # Documentação local (fora do repositório)
 docs/
 
+# Fixtures grandes (gerados por scripts/generate-fixtures.ts --large)
+fixtures/large/
+
 # Instruções locais do agente (fora do repositório)
 CLAUDE.md

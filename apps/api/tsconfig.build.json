@@ -7,6 +7,6 @@
     // Em produção o core é resolvido pelo dist dele, não pelo código-fonte.
     "customConditions": []
   },
-  "include": ["src"],
+  "include": ["src", "../../packages/core/src/vendor/papaparse.d.ts"],
   "exclude": ["src/**/*.test.ts", "src/test"]
 }

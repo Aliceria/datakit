@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { z } from 'zod';
+import { LIMITS } from '@datakit/core';
 
 // Raiz de apps/api, tanto rodando de src/ (desenvolvimento) quanto de dist/ (produção).
 export const API_ROOT = path.resolve(import.meta.dirname, '../..');
@@ -16,6 +17,9 @@ const envSchema = z.object({
   // Quantos proxies reversos confiáveis existem na frente do Express (Nginx = 1).
   TRUST_PROXY: z.coerce.number().int().min(0).max(5).default(0),
   WEB_DIST_DIR: z.string().default(path.join(REPO_ROOT, 'apps', 'web', 'dist')),
+  // Limites por IP (seção 0). Ajustáveis para redes com NAT (R8) e para os testes de ponta a ponta.
+  LIMIT_IMPORTS_PER_HOUR: z.coerce.number().int().min(1).default(LIMITS.importsPerIpPerHour),
+  LIMIT_ACTIVE_SESSIONS_PER_IP: z.coerce.number().int().min(1).default(LIMITS.activeSessionsPerIp),
 });
 
 export type AppConfig = {
@@ -25,6 +29,14 @@ export type AppConfig = {
   databaseUrl: string;
   trustProxy: number;
   webDistDir: string;
+  limits: BusinessLimits;
+};
+
+export type BusinessLimits = { importsPerHour: number; activeSessionsPerIp: number };
+
+export const DEFAULT_LIMITS: BusinessLimits = {
+  importsPerHour: LIMITS.importsPerIpPerHour,
+  activeSessionsPerIp: LIMITS.activeSessionsPerIp,
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -41,5 +53,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     databaseUrl: e.DATABASE_URL,
     trustProxy: e.TRUST_PROXY,
     webDistDir: e.WEB_DIST_DIR,
+    limits: {
+      importsPerHour: e.LIMIT_IMPORTS_PER_HOUR,
+      activeSessionsPerIp: e.LIMIT_ACTIVE_SESSIONS_PER_IP,
+    },
   };
 }

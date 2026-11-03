@@ -8,3 +8,5 @@ test-results/
 package-lock.json
 docs/SPEC.md
 docs/PRIMEIRA_MENSAGEM.md
+fixtures/
+.tmp/

@@ -1,0 +1,123 @@
+.dk-grid {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  background: var(--bg-app);
+  font-family: var(--font-grid);
+  font-size: var(--font-size-grid);
+}
+
+.dk-grid-canvas {
+  position: relative;
+}
+
+/* Cabeçalho fixo no topo e números de linha fixos à esquerda (seção 7.1). */
+.dk-grid-header {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--bg-bar);
+  border-bottom: 1px solid var(--border);
+}
+
+.dk-grid-corner,
+.dk-grid-rownum {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  height: 100%;
+  padding: 0 8px;
+  color: var(--text-muted);
+  text-align: right;
+  border-right: 1px solid var(--border);
+}
+
+.dk-grid-corner {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  background: var(--bg-bar);
+}
+
+.dk-grid-rownum {
+  background: var(--bg-app);
+  line-height: 22px;
+  user-select: none;
+}
+
+.dk-grid-headcell {
+  position: absolute;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+  padding: 0 8px;
+  border-right: 1px solid var(--border);
+  font-family: var(--font-ui);
+  font-size: var(--font-size);
+  font-weight: 700;
+}
+
+.dk-grid-headname {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dk-grid-badge {
+  flex: none;
+  padding: 0 3px;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-family: var(--font-grid);
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 14px;
+}
+
+.dk-grid-row {
+  position: absolute;
+  left: 0;
+}
+
+.dk-grid-row:hover .dk-grid-cell,
+.dk-grid-row:hover .dk-grid-rownum {
+  background: #252526;
+}
+
+.dk-grid-cell {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  padding: 0 8px;
+  border-right: 1px solid #2a2a2a;
+  border-bottom: 1px solid #2a2a2a;
+  line-height: 21px;
+  white-space: pre;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dk-grid-cell.is-number {
+  text-align: right;
+}
+
+.dk-cell-null {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.dk-cell-absent,
+.dk-cell-ws {
+  color: var(--text-muted);
+}
+
+/* Espaços no início ou no fim: destaque discreto. */
+.dk-cell-edge {
+  color: var(--warning);
+  background: rgb(217 164 65 / 0.12);
+}

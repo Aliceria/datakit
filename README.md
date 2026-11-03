@@ -3,8 +3,7 @@
 Editor web para importar, visualizar, editar, limpar e converter arquivos CSV, XLSX e JSON direto no navegador, sem cadastro.
 Endereço oficial: https://datakit.rking.com.br
 
-> **Estado atual:** Etapa 2 concluída (estrutura inicial e esqueleto do layout). Importação, edição e exportação ainda não existem.
-> Especificação: [`docs/SPEC.md`](docs/SPEC.md) · Plano: [`docs/PLANO.md`](docs/PLANO.md) · Decisões: [`docs/DECISOES.md`](docs/DECISOES.md)
+> **Estado atual:** importação de CSV, XLSX e JSON com pré-visualização e grade virtualizada só de leitura. Edição, filtros, tratamento e exportação ainda não existem.
 
 ## Requisitos
 
@@ -39,6 +38,8 @@ Sobe a API em http://127.0.0.1:3000 (aplica as migrations antes) e o Vite em htt
 | `npm run format`    | Prettier                                                                 |
 | `npm run check`     | Formatação, lint, tipos, testes e build, em sequência                    |
 
+Fixtures: `node scripts/generate-fixtures.ts` recria os pequenos; com `--large`, também o CSV de 100.000 linhas (o Playwright gera esse sozinho se faltar).
+
 Navegadores do Playwright: `npx playwright install chromium firefox webkit`.
 Para rodar só alguns: `npx playwright test --project=chromium --project=webkit`.
 
@@ -49,8 +50,8 @@ apps/web        React + TypeScript + Vite (interface)
 apps/api        Node.js + Express + Prisma/SQLite (sessões, parsing final, exportação)
 packages/core   TypeScript puro, sem DOM e sem Node: regras compartilhadas entre navegador e servidor
 e2e/            Testes Playwright
-scripts/        dev.mjs (API + Vite juntos), e2e-server.mjs (servidor dos testes E2E)
-docs/           Especificação, plano, decisões e (Etapa 10) publicação
+fixtures/       Arquivos de teste (CSV, XLSX, JSON, inválidos); os grandes ficam em fixtures/large, fora do git
+scripts/        dev.mjs (API + Vite juntos), e2e-server.mjs (servidor dos E2E), generate-fixtures.ts
 ```
 
 Em desenvolvimento, `@datakit/core` é usado direto do código-fonte (condição `source` no Node, alias no Vite/Vitest). No build de produção, a API usa o `dist` do core.
@@ -64,3 +65,7 @@ Na inicialização a API liga WAL, `secure_delete` e `auto_vacuum` incremental (
 npm run db:migrate -w @datakit/api        # aplica migrations (deploy)
 npm run db:migrate:dev -w @datakit/api    # cria uma migration nova a partir do schema
 ```
+
+## Integração contínua
+
+O GitHub Actions (`.github/workflows/ci.yml`) roda a cada envio para `main` e em pull requests: `npm run check` e os testes de ponta a ponta em Chromium, Firefox e WebKit.

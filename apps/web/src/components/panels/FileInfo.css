@@ -1,0 +1,21 @@
+.dk-info {
+  margin: 0;
+}
+
+.dk-info-row {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr);
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.dk-info-row dt {
+  color: var(--text-muted);
+}
+
+.dk-info-row dd {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -22,6 +22,9 @@ export default defineConfig({
           include: ['src/**/*.test.ts'],
           environment: 'node',
           env: { NODE_ENV: 'test' },
+          // Os worker threads do parsing rodam o código-fonte do core.
+          execArgv: ['--conditions=source'],
+          testTimeout: 30_000,
         },
       },
     ],

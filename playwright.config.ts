@@ -12,6 +12,7 @@ export default defineConfig({
   forbidOnly: Boolean(process.env['CI']),
   retries: process.env['CI'] ? 1 : 0,
   reporter: [['list']],
+  globalSetup: './e2e/global-setup.ts',
   use: {
     baseURL: `http://127.0.0.1:${PORT}`,
     locale: 'pt-BR',
@@ -30,6 +31,9 @@ export default defineConfig({
     env: {
       NODE_ENV: 'test',
       PORT: String(PORT),
+      // Todos os testes saem do mesmo IP: os limites por IP são afrouxados aqui e testados na API.
+      LIMIT_IMPORTS_PER_HOUR: '10000',
+      LIMIT_ACTIVE_SESSIONS_PER_IP: '10000',
       DATABASE_URL: `file:${dbFile.replaceAll('\\', '/')}`,
     },
   },

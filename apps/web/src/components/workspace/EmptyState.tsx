@@ -3,8 +3,10 @@ import './EmptyState.css';
 
 const HOUR_MS = 3_600_000;
 
-/** Tela inicial sem arquivo: formatos, limites e o aviso de armazenamento temporário (seções 11.3 e 12). */
-export function EmptyState() {
+type Props = { onOpen: () => void };
+
+/** Tela inicial sem arquivo: convite para abrir, formatos, limites e aviso temporário (seções 11.3 e 12). */
+export function EmptyState({ onOpen }: Props) {
   const limits: Array<[string, string]> = [
     ['Formatos', 'CSV, XLSX, JSON'],
     ['Tamanho máximo', formatBytes(LIMITS.maxFileBytes)],
@@ -16,7 +18,12 @@ export function EmptyState() {
   return (
     <div className="dk-empty">
       <div className="dk-empty-box">
-        <p className="dk-empty-title">Nenhum arquivo aberto</p>
+        <p className="dk-empty-title">
+          Arraste um arquivo aqui ou clique em{' '}
+          <button type="button" className="dk-empty-open" onClick={onOpen}>
+            Abrir
+          </button>
+        </p>
         <dl className="dk-empty-limits">
           {limits.map(([label, value]) => (
             <div key={label} className="dk-empty-row">

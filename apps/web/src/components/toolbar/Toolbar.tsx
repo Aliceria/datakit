@@ -1,4 +1,4 @@
-import { PanelLeft, PanelRight } from 'lucide-react';
+import { FolderOpen, PanelLeft, PanelRight } from 'lucide-react';
 import { PRODUCT } from '@datakit/core';
 import { ToolbarButton } from './ToolbarButton.tsx';
 import './Toolbar.css';
@@ -6,16 +6,23 @@ import './Toolbar.css';
 type Props = {
   drawer: 'left' | 'right' | null;
   onToggleDrawer: (side: 'left' | 'right') => void;
+  onOpen: () => void;
 };
 
-// Os botões de arquivo e edição (Abrir, Exportar, Desfazer…) entram quando funcionarem (Etapas 3 a 8).
-export function Toolbar({ drawer, onToggleDrawer }: Props) {
+// Exportar, Desfazer, Refazer, Ferramentas e Ajuda entram junto com as funcionalidades (Etapas 5 a 8).
+export function Toolbar({ drawer, onToggleDrawer, onOpen }: Props) {
   return (
     <header className="dk-toolbar">
       <div className="dk-brand">
         <span className="dk-brand-name">{PRODUCT.name}</span>
         <span className="dk-brand-subtitle">{PRODUCT.subtitle}</span>
       </div>
+      <ToolbarButton
+        icon={FolderOpen}
+        label="Abrir"
+        title="Abrir arquivo (Ctrl+O)"
+        onClick={onOpen}
+      />
       <div className="dk-toolbar-drawers">
         <ToolbarButton
           icon={PanelLeft}

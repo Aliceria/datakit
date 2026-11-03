@@ -4,12 +4,14 @@ import express, { type Express } from 'express';
 import type { AppConfig } from './config/env.ts';
 import type { Db } from './persistence/prisma.ts';
 import { healthRouter } from './routes/health.ts';
+import { importRouter } from './routes/import.ts';
+import { sessionRouter } from './routes/session.ts';
 import { generalRateLimit } from './security/rateLimit.ts';
 import { securityHeaders } from './security/headers.ts';
 import { apiNotFound, errorHandler } from './utils/httpErrors.ts';
 
 export type AppDeps = {
-  config: Pick<AppConfig, 'isProduction' | 'trustProxy' | 'webDistDir'>;
+  config: Pick<AppConfig, 'isProduction' | 'trustProxy' | 'webDistDir' | 'limits'>;
   db: Db;
 };
 
@@ -24,6 +26,8 @@ export function createApp({ config, db }: AppDeps): Express {
   api.use(generalRateLimit());
   api.use(express.json({ limit: '64kb' }));
   api.use(healthRouter(db));
+  api.use(importRouter(db, config.limits));
+  api.use(sessionRouter(db));
   api.use(apiNotFound);
   app.use('/api', api);
 

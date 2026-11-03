@@ -1,9 +1,10 @@
 import { PanelSection } from '../common/PanelSection.tsx';
+import { FileInfo } from './FileInfo.tsx';
 import './Panel.css';
 
 type Props = { open: boolean };
 
-// Conteúdo das seções: Etapa 3 (informações do arquivo) e Etapa 7 (inspetores).
+// Inspetores de coluna e de célula: Etapa 7.
 export function LeftPanel({ open }: Props) {
   return (
     <aside
@@ -12,7 +13,7 @@ export function LeftPanel({ open }: Props) {
       aria-label="Informações e inspetores"
     >
       <PanelSection title="Informações do arquivo">
-        <p className="dk-section-empty">Nenhum arquivo aberto.</p>
+        <FileInfo />
       </PanelSection>
       <PanelSection title="Inspetor de coluna">
         <p className="dk-section-empty">Nenhuma coluna selecionada.</p>

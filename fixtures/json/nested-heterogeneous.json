@@ -1,0 +1,5 @@
+[
+  {"id": 1, "nome": "Ana", "endereco": {"cidade": "São Paulo", "uf": "SP"}, "tags": ["a", "b"]},
+  {"id": 2, "nome": null, "email": "", "endereco": {"cidade": "Rio"}},
+  {"id": 3, "codigo": "123", "valor": 123, "endereco": {}}
+]

@@ -12,9 +12,10 @@
 }
 
 .dk-workspace {
+  position: relative;
   min-width: 0;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
   background: var(--bg-app);
 }
 
