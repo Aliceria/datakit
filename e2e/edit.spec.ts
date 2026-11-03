@@ -51,9 +51,14 @@ async function paste(page: Page, text: string) {
   await grid(page).evaluate((el, t) => {
     const data = new DataTransfer();
     data.setData('text/plain', t);
-    el.dispatchEvent(
-      new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }),
-    );
+    const event = new ClipboardEvent('paste', {
+      clipboardData: data,
+      bubbles: true,
+      cancelable: true,
+    });
+    // O Firefox troca os dados de um evento de colar sintético por um vazio; fixa os nossos.
+    Object.defineProperty(event, 'clipboardData', { value: data });
+    el.dispatchEvent(event);
   }, text);
 }
 
