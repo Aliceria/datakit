@@ -1,5 +1,7 @@
-import { FolderOpen, PanelLeft, PanelRight } from 'lucide-react';
+import { FolderOpen, PanelLeft, PanelRight, Redo2, Undo2 } from 'lucide-react';
 import { PRODUCT } from '@datakit/core';
+import { useApp } from '../../state/appStore.ts';
+import { redo, undo } from '../../state/editor.ts';
 import { ToolbarButton } from './ToolbarButton.tsx';
 import './Toolbar.css';
 
@@ -9,8 +11,19 @@ type Props = {
   onOpen: () => void;
 };
 
-// Exportar, Desfazer, Refazer, Ferramentas e Ajuda entram junto com as funcionalidades (Etapas 5 a 8).
+// Exportar, Ferramentas e Ajuda entram junto com as funcionalidades (Etapas 6 a 8).
 export function Toolbar({ drawer, onToggleDrawer, onOpen }: Props) {
+  // A revisão muda a cada operação: os rótulos e o estado dos botões acompanham.
+  const undoLabel = useApp((s) =>
+    s.revision >= 0 && s.sessionStatus !== 'expired'
+      ? s.doc?.history.undo.at(-1)?.label
+      : undefined,
+  );
+  const redoLabel = useApp((s) =>
+    s.revision >= 0 && s.sessionStatus !== 'expired'
+      ? s.doc?.history.redo.at(-1)?.label
+      : undefined,
+  );
   return (
     <header className="dk-toolbar">
       <div className="dk-brand">
@@ -22,6 +35,20 @@ export function Toolbar({ drawer, onToggleDrawer, onOpen }: Props) {
         label="Abrir"
         title="Abrir arquivo (Ctrl+O)"
         onClick={onOpen}
+      />
+      <ToolbarButton
+        icon={Undo2}
+        label="Desfazer"
+        title={undoLabel ? `Desfazer: ${undoLabel} (Ctrl+Z)` : 'Nada para desfazer'}
+        disabled={!undoLabel}
+        onClick={undo}
+      />
+      <ToolbarButton
+        icon={Redo2}
+        label="Refazer"
+        title={redoLabel ? `Refazer: ${redoLabel} (Ctrl+Y)` : 'Nada para refazer'}
+        disabled={!redoLabel}
+        onClick={redo}
       />
       <div className="dk-toolbar-drawers">
         <ToolbarButton

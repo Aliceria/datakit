@@ -121,3 +121,94 @@
   color: var(--warning);
   background: rgb(217 164 65 / 0.12);
 }
+
+/* --- Edição (Etapa 5) --- */
+
+.dk-grid:focus-visible {
+  outline: none;
+}
+
+.dk-grid-corner {
+  border: 0;
+  border-right: 1px solid var(--border);
+  font: inherit;
+  cursor: pointer;
+}
+
+.dk-grid-headcell,
+.dk-grid-rownum {
+  cursor: default;
+  user-select: none;
+}
+
+.dk-grid-headcell.is-selected,
+.dk-grid-rownum.is-selected {
+  background: #25393b;
+  color: var(--text);
+}
+
+.dk-grid-cell.is-selected {
+  background: rgb(43 122 128 / 0.22);
+}
+
+.dk-grid-row:hover .dk-grid-cell.is-selected {
+  background: rgb(43 122 128 / 0.3);
+}
+
+.dk-grid-cell.is-focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* Células alteradas e ainda não exportadas: marca discreta (seção 7.1). */
+.dk-grid-cell.is-edited {
+  box-shadow: inset 3px 0 0 var(--edited);
+}
+
+.dk-grid-rownum.is-edited,
+.dk-grid-headcell.is-edited {
+  box-shadow: inset 0 -2px 0 var(--edited);
+}
+
+.dk-col-resizer {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  z-index: 1;
+  width: 7px;
+  height: 100%;
+  cursor: col-resize;
+}
+
+.dk-col-resizer:hover {
+  background: var(--accent);
+}
+
+.dk-cell-editor {
+  position: absolute;
+  z-index: 5;
+  margin: 0;
+  padding: 2px 7px;
+  border: 2px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--bg-input);
+  color: var(--text);
+  font-family: var(--font-grid);
+  font-size: var(--font-size-grid);
+  line-height: 16px;
+  resize: none;
+  overflow: hidden;
+  white-space: pre;
+  outline: none;
+}
+
+.dk-rename-field {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.dk-rename-prefix {
+  color: var(--text-muted);
+  font-family: var(--font-grid);
+}

@@ -47,5 +47,11 @@ export {
   type JsonValue,
 } from './formats/json/jsonParser.ts';
 
-export { computeTableStats, type TableStats } from './stats/tableStats.ts';
+export { computeTableStats, createStatsAccumulator, type TableStats } from './stats/tableStats.ts';
 export * from './snapshot/codec.ts';
+
+export * from './ops/effects.ts';
+export * from './ops/history.ts';
+export * from './ops/nativeType.ts';
+export * from './ops/planners.ts';
+export { parseTsv, toTsv } from './clipboard/tsv.ts';

@@ -12,6 +12,7 @@ import { StatusBar } from './components/statusbar/StatusBar.tsx';
 import { Toolbar } from './components/toolbar/Toolbar.tsx';
 import { Workspace } from './components/workspace/Workspace.tsx';
 import { appStore, showError } from './state/appStore.ts';
+import { redo, undo } from './state/editor.ts';
 import { openFile } from './state/importFlow.ts';
 import './App.css';
 
@@ -39,6 +40,29 @@ export function App() {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && drawer !== null) setDrawer(null);
+      // Desfazer e refazer (seção 7.2). Dentro de campos de texto, vale o desfazer nativo deles.
+      const target = event.target as HTMLElement;
+      const inField = ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
+      const ctrl = event.ctrlKey || event.metaKey;
+      const { preview, confirm, message, expired } = appStore.get();
+      const dialogOpen =
+        preview !== undefined ||
+        confirm !== undefined ||
+        message !== undefined ||
+        expired !== undefined;
+      if (ctrl && !inField && !dialogOpen) {
+        const key = event.key.toLowerCase();
+        if (key === 'z' && !event.shiftKey) {
+          event.preventDefault();
+          undo();
+          return;
+        }
+        if (key === 'y' || (key === 'z' && event.shiftKey)) {
+          event.preventDefault();
+          redo();
+          return;
+        }
+      }
       // Ctrl+O abre arquivo, no lugar do "abrir" do navegador (seção 7.2).
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'o') {
         event.preventDefault();

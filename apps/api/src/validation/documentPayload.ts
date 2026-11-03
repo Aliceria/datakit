@@ -82,6 +82,29 @@ export const documentPayloadSchema = z
         source,
         warnings: z.array(z.object({ code: z.string(), message: z.string() }).strict()).max(100),
         tables: z.array(tableManifest).min(1).max(1000),
+        // Restauração começa um log novo, sem histórico de desfazer; as marcas de alteração
+        // ("não exportadas") são mantidas.
+        snapshotSeq: z.literal(0).optional(),
+        history: z
+          .object({ undo: z.tuple([]), redo: z.tuple([]) })
+          .strict()
+          .optional(),
+        marks: z
+          .object({
+            changes: z.number().int().min(0),
+            tables: z.record(
+              tableId,
+              z
+                .object({
+                  cells: z.array(z.string().regex(/^d{1,8}:cd{1,7}$/)).max(3_100_000),
+                  rows: z.array(z.number().int().min(0)).max(1_000_000),
+                  cols: z.array(columnId).max(1000),
+                })
+                .strict(),
+            ),
+          })
+          .strict()
+          .optional(),
       })
       .strict(),
     chunks: z.array(chunk),

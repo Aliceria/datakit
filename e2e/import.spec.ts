@@ -182,4 +182,26 @@ test('desempenho: CSV de 100.000 linhas × 20 colunas abre e rola', async ({
   await expect(page.getByRole('gridcell', { name: 'Pessoa 100000' })).toBeVisible();
   // Só as linhas visíveis existem no DOM.
   expect(await page.getByRole('row').count()).toBeLessThan(120);
+
+  // Edição aparece na tela em menos de 50 ms, sem esperar o servidor (seção 13).
+  await page.getByRole('gridcell', { name: 'Pessoa 100000' }).click();
+  await page.keyboard.press('F2');
+  await page.keyboard.press('Control+A');
+  await page.keyboard.type('Editada');
+  const ms = await page.evaluate(async () => {
+    const editor = document.querySelector('.dk-cell-editor');
+    if (!editor) throw new Error('sem editor');
+    const t0 = performance.now();
+    editor.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    for (;;) {
+      await new Promise((r) => requestAnimationFrame(r));
+      const cells = [...document.querySelectorAll('[role="gridcell"]')];
+      if (cells.some((c) => c.textContent === 'Editada')) return performance.now() - t0;
+      if (performance.now() - t0 > 2000) return Infinity;
+    }
+  });
+  console.log(`[${browserName}] edição visível em ${ms.toFixed(1)} ms`);
+  // Meta: 50 ms (medido entre 15 e 33 ms nesta máquina). Com todos os testes em paralelo a
+  // máquina fica disputada; a margem evita falso negativo. A medição isolada é da Etapa 9.
+  expect(ms).toBeLessThan(100);
 });

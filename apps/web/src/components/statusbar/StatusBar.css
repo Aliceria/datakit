@@ -19,3 +19,7 @@
 .dk-status-session.is-expired {
   color: var(--warning);
 }
+
+.dk-status-changes.is-dirty {
+  color: var(--edited);
+}

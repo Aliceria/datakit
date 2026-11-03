@@ -13,6 +13,7 @@ import {
 import type { DataDocument, ImportWarning, SourceInfo } from '../model/document.ts';
 import { createColumnData, type Column, type Table } from '../model/table.ts';
 import { computeTableStats, type TableStats } from '../stats/tableStats.ts';
+import type { History, SerializedMarks } from '../ops/history.ts';
 
 export const SNAPSHOT_FORMAT_VERSION = 1;
 export const CHUNK_ROWS = 4096;
@@ -36,6 +37,12 @@ export type DocumentManifest = {
   source: SourceInfo;
   warnings: ImportWarning[];
   tables: TableManifest[];
+  /** Última operação do log incluída neste snapshot (0 logo depois da importação). */
+  snapshotSeq?: number;
+  /** Histórico de desfazer/refazer no ponto do snapshot (cada entrada é autossuficiente). */
+  history?: History;
+  /** Marcas de alteração no ponto do snapshot. */
+  marks?: SerializedMarks;
 };
 
 export type ChunkColumn = {
@@ -58,7 +65,12 @@ export type EncodedChunk = { tableId: string; index: number; payload: ChunkPaylo
 const STATE_CHAR = ['v', 'n', 'a'] as const;
 const CHAR_STATE: Record<string, CellState> = { v: STATE_VALUE, n: STATE_NULL, a: STATE_ABSENT };
 
-export function encodeDocument(doc: DataDocument): {
+export type SnapshotState = { snapshotSeq: number; history: History; marks: SerializedMarks };
+
+export function encodeDocument(
+  doc: DataDocument,
+  state?: SnapshotState,
+): {
   manifest: DocumentManifest;
   chunks: EncodedChunk[];
 } {
@@ -121,6 +133,9 @@ export function encodeDocument(doc: DataDocument): {
       source: doc.source,
       warnings: doc.warnings,
       tables,
+      ...(state
+        ? { snapshotSeq: state.snapshotSeq, history: state.history, marks: state.marks }
+        : {}),
     },
     chunks,
   };

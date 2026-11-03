@@ -72,7 +72,7 @@ export async function parseInWorker(request: ParseRequest): Promise<ParseRespons
         reject(err);
       });
       // O ArrayBuffer é transferido, não copiado: o processo principal não guarda o arquivo bruto.
-      const buffer = request.bytes.buffer;
+      const buffer = 'bytes' in request ? request.bytes.buffer : undefined;
       worker.postMessage(request, buffer instanceof ArrayBuffer ? [buffer] : []);
     });
   } finally {

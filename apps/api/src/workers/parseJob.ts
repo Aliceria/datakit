@@ -14,6 +14,13 @@ import {
   applyChunk,
   LIMITS,
   type CellExtras,
+  type DocumentManifest,
+  type LogOp,
+  type SnapshotState,
+  applyLogOp,
+  deserializeMarks,
+  emptyHistory,
+  serializeMarks,
   type ChunkPayload,
   type Column,
   type DataDocument,
@@ -45,7 +52,14 @@ export type ImportSummary = {
 export type ParseRequest =
   | { kind: 'import'; bytes: Uint8Array; fileName: string; options: ImportOptions }
   | { kind: 'stage'; bytes: Uint8Array; fileName: string }
-  | { kind: 'restore'; bytes: Uint8Array };
+  | { kind: 'restore'; bytes: Uint8Array }
+  | {
+      kind: 'compact';
+      manifestGz: Uint8Array;
+      chunks: Array<{ tableId: string; data: Uint8Array }>;
+      /** Operações (gzip) depois do snapshot, em ordem de sequência. */
+      ops: Uint8Array[];
+    };
 
 export type StagedVariants = {
   withHeader: EncodedDocument;
@@ -61,7 +75,7 @@ export type ParseResponse =
 const gzip = (value: unknown): Uint8Array =>
   zlib.gzipSync(JSON.stringify(value), { level: zlib.constants.Z_BEST_SPEED });
 
-function encode(doc: DataDocument): EncodedDocument {
+function encode(doc: DataDocument, state?: SnapshotState): EncodedDocument {
   for (const table of doc.tables) {
     assertTableLimits(
       doc.tables.length > 1 ? table.name : '',
@@ -71,7 +85,7 @@ function encode(doc: DataDocument): EncodedDocument {
   }
   assertCellLimit(doc.tables.reduce((s, t) => s + t.rowOrder.length * t.columns.length, 0));
 
-  const { manifest, chunks } = encodeDocument(doc);
+  const { manifest, chunks } = encodeDocument(doc, state);
   return {
     manifestGz: gzip(manifest),
     chunks: chunks.map((c) => ({ tableId: c.tableId, index: c.index, data: gzip(c.payload) })),
@@ -101,7 +115,7 @@ const invalidRestore = () =>
  * formato do snapshot, compactado. Valida a estrutura, remonta as tabelas e recalcula inferência
  * e estatísticas (o que veio do navegador nesses campos é descartado).
  */
-function rebuildDocument(bytes: Uint8Array): DataDocument {
+function rebuildDocument(bytes: Uint8Array): { doc: DataDocument; state: SnapshotState } {
   let json: unknown;
   try {
     json = JSON.parse(
@@ -140,7 +154,8 @@ function rebuildDocument(bytes: Uint8Array): DataDocument {
     }
   }
   const { source } = manifest;
-  return {
+  const marks = manifest.marks;
+  const doc: DataDocument = {
     source: {
       fileName: source.fileName,
       extension: source.extension,
@@ -156,6 +171,47 @@ function rebuildDocument(bytes: Uint8Array): DataDocument {
     tables,
     warnings: [],
   };
+  const state: SnapshotState = {
+    snapshotSeq: 0,
+    history: emptyHistory(),
+    marks: marks ? { changes: marks.changes, tables: marks.tables } : { changes: 0, tables: {} },
+  };
+  return { doc, state };
+}
+
+/**
+ * Compactação (docs/PLANO.md, 4.4): snapshot + log → snapshot novo, com o histórico de desfazer e as
+ * marcas de alteração reconstruídos pelas mesmas funções que o navegador usa.
+ */
+function compactDocument(request: Extract<ParseRequest, { kind: 'compact' }>): EncodedDocument {
+  const unzipJson = (data: Uint8Array): unknown =>
+    JSON.parse(zlib.gunzipSync(data).toString('utf8'));
+  const manifest = unzipJson(request.manifestGz) as DocumentManifest;
+  const tables = manifest.tables.map(tableFromManifest);
+  for (const chunk of request.chunks) {
+    const table = tables.find((t) => t.id === chunk.tableId);
+    if (!table) throw new ImportError('INVALID_FILE', 'Snapshot inconsistente.');
+    applyChunk(table, unzipJson(chunk.data) as ChunkPayload);
+  }
+  const state = {
+    tables,
+    history: manifest.history ?? emptyHistory(),
+    marks: deserializeMarks(manifest.marks),
+  };
+  let lastSeq = manifest.snapshotSeq ?? 0;
+  for (const data of request.ops) {
+    const op = unzipJson(data) as LogOp;
+    try {
+      applyLogOp(state, op);
+    } catch {
+      throw new ImportError('INVALID_FILE', `Operação ${String(op.seq)} não pôde ser aplicada.`);
+    }
+    lastSeq = op.seq;
+  }
+  return encode(
+    { source: manifest.source, tables, warnings: manifest.warnings },
+    { snapshotSeq: lastSeq, history: state.history, marks: serializeMarks(state.marks) },
+  );
 }
 
 type ValidatedChunk = DocumentPayload['chunks'][number]['payload'];
@@ -188,8 +244,12 @@ function applyXlsxHeader(doc: DataDocument): void {
 
 export async function runParse(request: ParseRequest): Promise<ParseResponse> {
   try {
+    if (request.kind === 'compact') {
+      return { ok: true, kind: 'import', document: compactDocument(request) };
+    }
     if (request.kind === 'restore') {
-      return { ok: true, kind: 'import', document: encode(rebuildDocument(request.bytes)) };
+      const rebuilt = rebuildDocument(request.bytes);
+      return { ok: true, kind: 'import', document: encode(rebuilt.doc, rebuilt.state) };
     }
     const reader = registry.forFileName(request.fileName);
     if (!reader) {

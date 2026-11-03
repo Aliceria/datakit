@@ -3,6 +3,9 @@ import {
   applyChunk,
   assertFileSize,
   descriptorForFileName,
+  applyLogOp,
+  deserializeMarks,
+  emptyHistory,
   formatFromFileName,
   tableFromManifest,
   type ImportOptions,
@@ -14,16 +17,21 @@ import {
   deleteSession,
   fetchChunk,
   fetchManifest,
+  fetchOpsAfter,
+  fetchSessionState,
   getSessionToken,
   setSessionToken,
   stageXlsx,
   uploadFile,
   type ImportResponse,
 } from '../api/client.ts';
-import { adoptSession, endSession } from '../session/sessionManager.ts';
+import { startQueue, stopQueueAndWait } from '../session/opQueue.ts';
+import { adoptSession, endSession, queueHandlers } from '../session/sessionManager.ts';
 import { documentKey, loadViewState } from '../session/viewState.ts';
 import { requestPreview } from '../workers/previewClient.ts';
-import { appStore, showError, type PreviewState } from './appStore.ts';
+import { appStore, showError, type LoadedDocument, type PreviewState } from './appStore.ts';
+import { replayPending } from './editor.ts';
+import { restoreSelection } from './selection.ts';
 
 // Fluxo de importação (seções 2.3 e 6.1): validar → pré-visualizar se houver o que confirmar →
 // enviar → baixar o documento processado pelo servidor.
@@ -35,8 +43,31 @@ function errorMessage(err: unknown): string {
   return 'Ocorreu um erro inesperado. Tente novamente.';
 }
 
-/** Ponto de entrada: botão Abrir, Ctrl+O ou arrastar e soltar. */
-export async function openFile(file: File): Promise<void> {
+/**
+ * Ponto de entrada: botão Abrir, Ctrl+O ou arrastar e soltar. Com alterações não exportadas,
+ * pede confirmação antes de substituir o conteúdo da sessão (seção 6.1).
+ */
+export function openFile(file: File): Promise<void> {
+  const changes = appStore.get().doc?.marks.changes ?? 0;
+  if (changes === 0) return openConfirmed(file);
+  return new Promise((resolve) => {
+    appStore.set({
+      confirm: {
+        title: 'Abrir outro arquivo',
+        message:
+          `O arquivo aberto tem ${String(changes)} ${changes === 1 ? 'alteração' : 'alterações'} que ainda não ` +
+          'foram exportadas. Abrir outro arquivo substitui o atual, e essas alterações serão perdidas.',
+        confirmLabel: 'Abrir mesmo assim',
+        onConfirm: () => {
+          appStore.set({ confirm: undefined });
+          void openConfirmed(file).then(resolve);
+        },
+      },
+    });
+  });
+}
+
+async function openConfirmed(file: File): Promise<void> {
   let format;
   try {
     // Passos 1 e 2 da validação também no navegador, para responder na hora.
@@ -148,6 +179,8 @@ async function finish(send: () => Promise<ImportResponse>): Promise<void> {
   const previousStatus = appStore.get().sessionStatus;
   appStore.set({ busy: 'Importando…', sessionStatus: 'saving' });
   try {
+    // O conteúdo da sessão vai ser substituído: nenhuma operação antiga pode chegar depois.
+    await stopQueueAndWait();
     const result = await send();
     if (result.sessionId) setSessionToken(result.sessionId);
     const token = getSessionToken();
@@ -160,14 +193,33 @@ async function finish(send: () => Promise<ImportResponse>): Promise<void> {
   }
 }
 
-/** Baixa o manifesto e os blocos do snapshot e monta as tabelas em memória. */
+/**
+ * Carrega o documento do servidor: estado da sessão → manifesto e blocos daquela versão →
+ * operações do log depois do snapshot → operações da fila desta aba que o servidor ainda não tem.
+ * Se uma compactação trocar a versão no meio do caminho, recomeça (no máximo 3 vezes).
+ */
 export async function loadDocument(): Promise<void> {
   appStore.set({ busy: 'Carregando os dados…' });
-  const manifest = await fetchManifest();
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      await loadOnce();
+      return;
+    } catch (err) {
+      const retryable =
+        err instanceof ApiError && (err.code === 'OPS_COMPACTED' || err.status === 404);
+      if (!retryable || attempt >= 3) throw err;
+    }
+  }
+}
+
+async function loadOnce(): Promise<void> {
+  const state = await fetchSessionState();
+  const version = state.snapshotVersion;
+  const manifest = await fetchManifest(version);
   const tables = manifest.tables.map(tableFromManifest);
   const jobs = manifest.tables.flatMap((tm, t) =>
     tm.chunks.map((index) => async () => {
-      const payload = await fetchChunk(tm.id, index);
+      const payload = await fetchChunk(tm.id, index, version);
       const table = tables[t];
       if (table) applyChunk(table, payload);
     }),
@@ -178,15 +230,30 @@ export async function loadDocument(): Promise<void> {
   });
   await Promise.all(workers);
 
-  // Volta à aba e à rolagem em que o usuário estava (F5, aba reaberta ou duplicada).
-  const view = loadViewState(documentKey(manifest.source));
+  const doc: LoadedDocument = {
+    manifest,
+    tables,
+    history: manifest.history ?? emptyHistory(),
+    marks: deserializeMarks(manifest.marks),
+    stats: Object.fromEntries(manifest.tables.map((t) => [t.id, t.stats])),
+    inference: Object.fromEntries(manifest.tables.map((t) => [t.id, t.inference])),
+  };
+  const ops = await fetchOpsAfter(manifest.snapshotSeq ?? 0);
+  for (const op of ops) applyLogOp(doc, op);
+  const headSeq = ops.at(-1)?.seq ?? manifest.snapshotSeq ?? 0;
+
+  // Volta à aba, à rolagem e à seleção em que o usuário estava (F5, aba reaberta ou duplicada).
+  const key = documentKey(manifest.source);
+  const view = loadViewState(key);
   const remembered = tables.find((t) => t.id === view.activeTableId);
   const firstVisible = tables.find((t) => !t.hidden) ?? tables[0];
-  appStore.set({
-    doc: { manifest, tables },
-    activeTableId: (remembered ?? firstVisible)?.id,
-    busy: undefined,
-  });
+  const activeTableId = (remembered ?? firstVisible)?.id;
+  appStore.set({ doc, activeTableId, busy: undefined, selection: undefined, editing: undefined });
+
+  const pending = startQueue(key, headSeq, queueHandlers);
+  if (pending.length > 0) replayPending(pending);
+  if (activeTableId) restoreSelection(activeTableId);
+  appStore.set((s) => ({ revision: s.revision + 1 }));
 }
 
 function showWarnings(warnings: ImportWarning[]): void {

@@ -1,4 +1,4 @@
-import express, { Router } from 'express';
+import express, { Router, type Request } from 'express';
 import { z } from 'zod';
 import type { BusinessLimits } from '../config/env.ts';
 import type { Db } from '../persistence/prisma.ts';
@@ -6,7 +6,9 @@ import { reclaimSpace, type CleanupScheduler } from '../services/cleanupService.
 import { assertCanCreateSession } from '../services/importService.ts';
 import {
   findActiveSession,
+  findActiveSessionById,
   forkSession,
+  hashToken,
   heartbeat,
   ipHash,
   isValidInstanceId,
@@ -17,6 +19,8 @@ import {
   resumeSession,
   type ActiveSession,
 } from '../services/sessionService.ts';
+import { appendOps } from '../services/opService.ts';
+import { asLogOp, logOpSchema } from '../validation/opsPayload.ts';
 import { ApiError } from '../utils/httpErrors.ts';
 import { log } from '../utils/log.ts';
 
@@ -31,8 +35,21 @@ const releaseBody = z
   .object({
     sid: z.string().refine(isValidToken),
     instanceId: z.string().refine(isValidInstanceId),
+    // Operações ainda não enviadas que couberam no beacon (até ~64 KB).
+    ops: z.array(logOpSchema).max(1000).optional(),
   })
   .strict();
+
+/** Operações do beacon: só da instância ativa; falhas são ignoradas (a fila do navegador reenvia). */
+async function appendReleasedOps(db: Db, body: z.infer<typeof releaseBody>): Promise<void> {
+  try {
+    const session = await findActiveSessionById(db, hashToken(body.sid));
+    if (!session || session.activeInstanceId !== body.instanceId || !body.ops) return;
+    await appendOps(db, session.id, body.ops.map(asLogOp));
+  } catch {
+    // Reenviadas depois pela fila guardada no sessionStorage.
+  }
+}
 
 function parseInstance(body: unknown): string {
   const parsed = instanceBody.safeParse(body);
@@ -42,17 +59,38 @@ function parseInstance(body: unknown): string {
 
 /** O que o navegador precisa para montar a sessão depois de retomar ou copiar. */
 const sessionState = (
-  session: Pick<ActiveSession, 'snapshotVersion' | 'headSeq' | 'expiresAt'>,
+  session: Pick<ActiveSession, 'snapshotVersion' | 'snapshotSeq' | 'headSeq' | 'expiresAt'>,
 ) => ({
   snapshotVersion: session.snapshotVersion,
+  snapshotSeq: session.snapshotSeq,
   headSeq: session.headSeq,
   expiresAt: session.expiresAt.toISOString(),
 });
+
+/**
+ * Versão do snapshot pedida em ?v=. Vale a atual ou a anterior (que a compactação guarda por uma
+ * rodada), para quem começou a baixar antes de uma compactação terminar.
+ */
+function requestedVersion(req: Request, session: ActiveSession): number {
+  const v = Number(req.query['v']);
+  if (Number.isInteger(v) && (v === session.snapshotVersion || v === session.snapshotVersion - 1)) {
+    return v;
+  }
+  return session.snapshotVersion;
+}
 
 export type SessionRouterDeps = { limits: BusinessLimits; cleanup: CleanupScheduler | undefined };
 
 export function sessionRouter(db: Db, deps: SessionRouterDeps): Router {
   const router = Router();
+
+  router.get('/session/state', async (req, res, next) => {
+    try {
+      res.json(sessionState(await requireSession(db, req)));
+    } catch (err) {
+      next(err);
+    }
+  });
 
   // F5, reabrir a aba fechada ou voltar pelo bfcache (seção 5.3).
   router.post('/session/resume', async (req, res, next) => {
@@ -81,6 +119,7 @@ export function sessionRouter(db: Db, deps: SessionRouterDeps): Router {
         }
         const parsed = releaseBody.safeParse(body);
         if (parsed.success) {
+          if (parsed.data.ops?.length) await appendReleasedOps(db, parsed.data);
           const deleteAt = await releaseSession(
             db,
             parsed.data.sid,
@@ -128,7 +167,7 @@ export function sessionRouter(db: Db, deps: SessionRouterDeps): Router {
       const session = await requireSession(db, req);
       const manifest = await db.snapshotManifest.findUnique({
         where: {
-          sessionId_version: { sessionId: session.id, version: session.snapshotVersion },
+          sessionId_version: { sessionId: session.id, version: requestedVersion(req, session) },
         },
       });
       if (!manifest) throw new ApiError(404, 'NOT_FOUND', 'Nenhum arquivo aberto nesta sessão.');
@@ -136,7 +175,7 @@ export function sessionRouter(db: Db, deps: SessionRouterDeps): Router {
         'Content-Type': 'application/json; charset=utf-8',
         'Content-Encoding': 'gzip',
         'Cache-Control': 'no-store',
-        'X-Snapshot-Version': String(session.snapshotVersion),
+        'X-Snapshot-Version': String(requestedVersion(req, session)),
       });
       res.send(Buffer.from(manifest.data));
     } catch (err) {
@@ -154,7 +193,7 @@ export function sessionRouter(db: Db, deps: SessionRouterDeps): Router {
         where: {
           sessionId_version_tableId_chunkIndex: {
             sessionId: session.id,
-            version: session.snapshotVersion,
+            version: requestedVersion(req, session),
             tableId: params.data.tableId,
             chunkIndex: params.data.chunkIndex,
           },

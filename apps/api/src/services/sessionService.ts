@@ -66,6 +66,7 @@ export function isExpired(session: ExpiryFields, now = new Date()): boolean {
 export type ActiveSession = {
   id: string;
   snapshotVersion: number;
+  snapshotSeq: number;
   headSeq: number;
   expiresAt: Date;
   activeInstanceId: string | null;
@@ -75,6 +76,7 @@ export type ActiveSession = {
 const ACTIVE_SELECT = {
   id: true,
   snapshotVersion: true,
+  snapshotSeq: true,
   headSeq: true,
   expiresAt: true,
   lastSeenAt: true,
@@ -101,6 +103,7 @@ export async function findActiveSessionById(
   return {
     id: session.id,
     snapshotVersion: session.snapshotVersion,
+    snapshotSeq: session.snapshotSeq,
     headSeq: session.headSeq,
     expiresAt: session.expiresAt,
     activeInstanceId: session.activeInstanceId,
@@ -216,8 +219,8 @@ export async function forkSession(
       },
     });
     await tx.$executeRaw`
-      INSERT INTO "SnapshotManifest" ("sessionId", "version", "data")
-      SELECT ${id}, "version", "data" FROM "SnapshotManifest" WHERE "sessionId" = ${sourceId}`;
+      INSERT INTO "SnapshotManifest" ("sessionId", "version", "seq", "data")
+      SELECT ${id}, "version", "seq", "data" FROM "SnapshotManifest" WHERE "sessionId" = ${sourceId}`;
     await tx.$executeRaw`
       INSERT INTO "SnapshotChunk" ("sessionId", "version", "tableId", "chunkIndex", "data")
       SELECT ${id}, "version", "tableId", "chunkIndex", "data"

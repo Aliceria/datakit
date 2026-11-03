@@ -46,6 +46,8 @@ model Session {
 model SnapshotManifest {
   sessionId String
   version   Int
+  /// Última operação do log incluída nesta versão
+  seq       Int     @default(0)
   data      Bytes
 
   session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)

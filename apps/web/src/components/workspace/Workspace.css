@@ -117,3 +117,8 @@
   font-size: 16px;
   pointer-events: none;
 }
+
+.dk-filetab-dirty {
+  color: var(--edited);
+  font-weight: 700;
+}

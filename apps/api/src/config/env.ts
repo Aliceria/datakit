@@ -20,6 +20,8 @@ const envSchema = z.object({
   // Limites por IP (seção 0). Ajustáveis para redes com NAT (R8) e para os testes de ponta a ponta.
   LIMIT_IMPORTS_PER_HOUR: z.coerce.number().int().min(1).default(LIMITS.importsPerIpPerHour),
   LIMIT_ACTIVE_SESSIONS_PER_IP: z.coerce.number().int().min(1).default(LIMITS.activeSessionsPerIp),
+  // Limite genérico de requisições por IP por minuto, contra enxurrada (seção 12).
+  LIMIT_REQUESTS_PER_MINUTE: z.coerce.number().int().min(10).default(600),
   // Prazo entre fechar a aba e apagar a sessão (seção 0). Encurtado só nos testes de ponta a ponta.
   SESSION_DELETE_AFTER_CLOSE_MS: z.coerce
     .number()
@@ -43,12 +45,14 @@ export type BusinessLimits = {
   importsPerHour: number;
   activeSessionsPerIp: number;
   deleteAfterCloseMs: number;
+  requestsPerMinute: number;
 };
 
 export const DEFAULT_LIMITS: BusinessLimits = {
   importsPerHour: LIMITS.importsPerIpPerHour,
   activeSessionsPerIp: LIMITS.activeSessionsPerIp,
   deleteAfterCloseMs: SESSION_TIMING.deleteAfterCloseMs,
+  requestsPerMinute: 600,
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -69,6 +73,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       importsPerHour: e.LIMIT_IMPORTS_PER_HOUR,
       activeSessionsPerIp: e.LIMIT_ACTIVE_SESSIONS_PER_IP,
       deleteAfterCloseMs: e.SESSION_DELETE_AFTER_CLOSE_MS,
+      requestsPerMinute: e.LIMIT_REQUESTS_PER_MINUTE,
     },
   };
 }

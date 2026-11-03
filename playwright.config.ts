@@ -13,6 +13,9 @@ export default defineConfig({
   retries: process.env['CI'] ? 1 : 0,
   reporter: [['list']],
   globalSetup: './e2e/global-setup.ts',
+  // Com todos os testes em paralelo, o servidor processa as importações com no máximo 2 workers
+  // por vez (de propósito): algumas esperas passam dos 5 s padrão.
+  expect: { timeout: 10_000 },
   use: {
     baseURL: `http://127.0.0.1:${PORT}`,
     locale: 'pt-BR',
@@ -34,6 +37,7 @@ export default defineConfig({
       // Todos os testes saem do mesmo IP: os limites por IP são afrouxados aqui e testados na API.
       LIMIT_IMPORTS_PER_HOUR: '10000',
       LIMIT_ACTIVE_SESSIONS_PER_IP: '10000',
+      LIMIT_REQUESTS_PER_MINUTE: '100000',
       // Prazo depois de fechar a aba encurtado para testar o "fora do prazo" sem esperar 60 s.
       SESSION_DELETE_AFTER_CLOSE_MS: '4000',
       DATABASE_URL: `file:${dbFile.replaceAll('\\', '/')}`,

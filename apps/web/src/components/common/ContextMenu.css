@@ -1,0 +1,48 @@
+.dk-menu {
+  position: fixed;
+  z-index: 200;
+  min-width: 220px;
+  padding: 3px 0;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  font-family: var(--font-ui);
+  font-size: var(--font-size);
+}
+
+.dk-menu-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  width: 100%;
+  padding: 4px 12px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dk-menu-item:hover:not(:disabled),
+.dk-menu-item:focus-visible {
+  background: var(--accent);
+  outline: none;
+}
+
+.dk-menu-item:disabled {
+  color: var(--text-disabled);
+  cursor: default;
+}
+
+.dk-menu-shortcut {
+  color: var(--text-muted);
+}
+
+.dk-menu-item:hover:not(:disabled) .dk-menu-shortcut,
+.dk-menu-item:focus-visible .dk-menu-shortcut {
+  color: var(--text);
+}
+
+.dk-menu-separator {
+  height: 1px;
+  margin: 3px 0;
+  background: var(--border);
+}

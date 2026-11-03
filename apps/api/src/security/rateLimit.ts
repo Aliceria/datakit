@@ -6,10 +6,10 @@ import { ApiError } from '../utils/httpErrors.ts';
  * Os limites de negócio da seção 0 (importações por hora, sessões ativas) são contados no banco,
  * nas próprias rotas, a partir da Etapa 3.
  */
-export function generalRateLimit() {
+export function generalRateLimit(perMinute: number) {
   return rateLimit({
     windowMs: 60_000,
-    limit: 600,
+    limit: perMinute,
     standardHeaders: 'draft-8',
     legacyHeaders: false,
     handler: (_req, _res, next) => {

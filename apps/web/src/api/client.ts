@@ -3,6 +3,7 @@ import type {
   DocumentManifest,
   ImportOptions,
   ImportWarning,
+  LogOp,
   PreviewTable,
 } from '@datakit/core';
 import { instanceId } from '../session/tabIdentity.ts';
@@ -36,10 +37,12 @@ export function setSessionToken(token: string | null): void {
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
-  constructor(status: number, code: string, message: string) {
+  readonly details: Record<string, unknown> | undefined;
+  constructor(status: number, code: string, message: string, details?: Record<string, unknown>) {
     super(message);
     this.status = status;
     this.code = code;
+    this.details = details;
   }
 }
 
@@ -61,14 +64,18 @@ async function request(path: string, init: RequestInit = {}): Promise<Response> 
   if (!res.ok) {
     let code = 'HTTP_' + String(res.status);
     let message = 'Não foi possível concluir a operação. Tente novamente.';
+    let details: Record<string, unknown> | undefined;
     try {
-      const body = (await res.json()) as { error?: { code?: string; message?: string } };
+      const body = (await res.json()) as {
+        error?: { code?: string; message?: string; details?: Record<string, unknown> };
+      };
       if (body.error?.code) code = body.error.code;
       if (body.error?.message) message = body.error.message;
+      details = body.error?.details;
     } catch {
       // Resposta sem JSON (ex.: proxy): fica a mensagem genérica.
     }
-    throw new ApiError(res.status, code, message);
+    throw new ApiError(res.status, code, message, details);
   }
   return res;
 }
@@ -129,14 +136,48 @@ export async function commitStaged(stageId: string, hasHeader: boolean): Promise
   return (await res.json()) as ImportResponse;
 }
 
-export async function fetchManifest(): Promise<DocumentManifest> {
-  const res = await request('/api/session/manifest');
+export async function fetchManifest(version: number): Promise<DocumentManifest> {
+  const res = await request(`/api/session/manifest?v=${String(version)}`);
   return (await res.json()) as DocumentManifest;
 }
 
-export async function fetchChunk(tableId: string, index: number): Promise<ChunkPayload> {
-  const res = await request(`/api/session/chunks/${encodeURIComponent(tableId)}/${String(index)}`);
+export async function fetchChunk(
+  tableId: string,
+  index: number,
+  version: number,
+): Promise<ChunkPayload> {
+  const res = await request(
+    `/api/session/chunks/${encodeURIComponent(tableId)}/${String(index)}?v=${String(version)}`,
+  );
   return (await res.json()) as ChunkPayload;
+}
+
+export async function fetchSessionState(): Promise<SessionState> {
+  const res = await request('/api/session/state');
+  return (await res.json()) as SessionState;
+}
+
+/** Operações do log depois do snapshot, para reaplicar (F5, aba reaberta ou duplicada). */
+export async function fetchOpsAfter(after: number): Promise<LogOp[]> {
+  const res = await request(`/api/session/ops?after=${String(after)}`);
+  return (await res.json()) as LogOp[];
+}
+
+const COMPRESS_FROM_BYTES = 32 * 1024;
+
+/** Envia operações. Corpos grandes (colagens) vão compactados com gzip. */
+export async function postOps(ops: readonly LogOp[]): Promise<number> {
+  const json = JSON.stringify({ instanceId, ops });
+  const headers: Record<string, string> = { 'content-type': 'application/json' };
+  let body: BodyInit = json;
+  if (json.length > COMPRESS_FROM_BYTES && 'CompressionStream' in window) {
+    body = await new Response(
+      new Blob([json]).stream().pipeThrough(new CompressionStream('gzip')),
+    ).blob();
+    headers['content-encoding'] = 'gzip';
+  }
+  const res = await request('/api/session/ops', { method: 'POST', headers, body });
+  return ((await res.json()) as { ackedSeq: number }).ackedSeq;
 }
 
 export async function deleteSession(): Promise<void> {
@@ -145,7 +186,12 @@ export async function deleteSession(): Promise<void> {
 
 // --- Ciclo de vida da sessão (seção 5) --------------------------------------------------------
 
-export type SessionState = { snapshotVersion: number; headSeq: number; expiresAt: string };
+export type SessionState = {
+  snapshotVersion: number;
+  snapshotSeq: number;
+  headSeq: number;
+  expiresAt: string;
+};
 
 const jsonBody = (body: unknown): RequestInit => ({
   method: 'POST',
@@ -182,10 +228,14 @@ export async function restoreSession(gzipped: Blob): Promise<ImportResponse> {
  * pagehide: pede a exclusão agendada. O beacon não manda cabeçalhos, então o token vai no corpo,
  * como text/plain (sem preflight). Se o beacon não for aceito, tenta fetch com keepalive.
  */
-export function sendRelease(): void {
+export function sendRelease(pending: readonly LogOp[] = []): void {
   const token = getSessionToken();
   if (!token) return;
-  const body = JSON.stringify({ sid: token, instanceId });
+  // O beacon tem limite de ~64 KB: as operações só vão junto se couberem (a fila no
+  // sessionStorage é a fonte principal; o servidor ignora repetições pelo opId).
+  let body = JSON.stringify({ sid: token, instanceId, ops: pending });
+  if (pending.length === 0 || body.length > 60 * 1024)
+    body = JSON.stringify({ sid: token, instanceId });
   const blob = new Blob([body], { type: 'text/plain;charset=UTF-8' });
   if (navigator.sendBeacon('/api/session/release', blob)) return;
   void fetch('/api/session/release', {

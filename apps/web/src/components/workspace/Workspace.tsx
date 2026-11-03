@@ -1,7 +1,8 @@
 import { X } from 'lucide-react';
 import { appStore, activeTable, useApp } from '../../state/appStore.ts';
 import { requestCloseFile } from '../../state/importFlow.ts';
-import { rememberActiveTable, rememberScroll, tableView } from '../../session/viewState.ts';
+import { rememberActiveTable } from '../../session/viewState.ts';
+import { restoreSelection } from '../../state/selection.ts';
 import { Grid } from '../grid/Grid.tsx';
 import { EmptyState } from './EmptyState.tsx';
 import './Workspace.css';
@@ -12,6 +13,8 @@ export function Workspace({ onOpen }: Props) {
   const doc = useApp((s) => s.doc);
   const table = useApp(activeTable);
   const busy = useApp((s) => s.busy);
+  const readOnly = useApp((s) => s.sessionStatus === 'expired');
+  const changes = useApp((s) => (s.revision >= 0 ? (s.doc?.marks.changes ?? 0) : 0));
 
   if (!doc || !table) {
     return (
@@ -22,7 +25,6 @@ export function Workspace({ onOpen }: Props) {
     );
   }
 
-  const manifestTable = doc.manifest.tables.find((t) => t.id === table.id);
   const isXlsx = doc.manifest.source.format === 'xlsx';
 
   return (
@@ -32,6 +34,15 @@ export function Workspace({ onOpen }: Props) {
           <span className="dk-filetab-name" title={doc.manifest.source.fileName}>
             {doc.manifest.source.fileName}
           </span>
+          {changes > 0 && (
+            <span
+              className="dk-filetab-dirty"
+              title="Alterações não exportadas"
+              aria-label="Alterações não exportadas"
+            >
+              •
+            </span>
+          )}
           <button
             type="button"
             className="dk-filetab-close"
@@ -50,11 +61,9 @@ export function Workspace({ onOpen }: Props) {
         <Grid
           key={table.id}
           table={table}
-          inference={manifestTable?.inference ?? {}}
-          initialScroll={tableView(table.id)}
-          onScroll={(top, left) => {
-            rememberScroll(table.id, top, left);
-          }}
+          inference={doc.inference[table.id] ?? {}}
+          marks={doc.marks.tables.get(table.id)}
+          readOnly={readOnly}
         />
       )}
 
@@ -70,7 +79,8 @@ export function Workspace({ onOpen }: Props) {
               title={t.hidden ? 'Aba oculta no arquivo original' : t.name}
               onClick={() => {
                 rememberActiveTable(t.id);
-                appStore.set({ activeTableId: t.id });
+                appStore.set({ activeTableId: t.id, selection: undefined, editing: undefined });
+                restoreSelection(t.id);
               }}
             >
               {t.name}

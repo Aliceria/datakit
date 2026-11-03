@@ -1,5 +1,9 @@
 import type {
+  ColumnInference,
   DocumentManifest,
+  History,
+  Marks,
+  TableStats,
   ImportOptions,
   ImportWarning,
   JsonRootKind,
@@ -8,10 +12,25 @@ import type {
 } from '@datakit/core';
 import { createStore, useStore } from './store.ts';
 
+/** Documento aberto: é o estado de edição do core (tabelas, histórico, marcas) + derivados. */
 export type LoadedDocument = {
   manifest: DocumentManifest;
   tables: Table[];
+  history: History;
+  marks: Marks;
+  /** Estatísticas e inferência por tabela; recalculadas depois das operações (seção 9). */
+  stats: Record<string, TableStats>;
+  inference: Record<string, Record<string, ColumnInference>>;
 };
+
+/** Seleção na ordem visível da tabela ativa (índices de linha e de coluna). */
+export type Selection = {
+  anchor: { r: number; c: number };
+  focus: { r: number; c: number };
+  mode: 'cells' | 'rows' | 'columns';
+};
+
+export type EditingState = { r: number; c: number; initial: string; replace: boolean };
 
 /** Pré-visualização aberta (seção 6.1). */
 export type PreviewState =
@@ -64,6 +83,10 @@ export type AppState = {
   message: MessageState | undefined;
   confirm: ConfirmState | undefined;
   sessionStatus: SessionStatus;
+  /** Incrementado a cada mudança dos dados em memória (as tabelas são mutadas no lugar). */
+  revision: number;
+  selection: Selection | undefined;
+  editing: EditingState | undefined;
   /** Sessão expirou com a aba aberta; canRestore quando ainda há dados na memória (L14). */
   expired: { canRestore: boolean } | undefined;
 };
@@ -77,6 +100,9 @@ export const appStore = createStore<AppState>({
   confirm: undefined,
   sessionStatus: 'none',
   expired: undefined,
+  revision: 0,
+  selection: undefined,
+  editing: undefined,
 });
 
 export const useApp = <S>(selector: (state: AppState) => S): S => useStore(appStore, selector);

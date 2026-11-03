@@ -1,5 +1,6 @@
 import { ENCODING_LABELS, formatInteger } from '@datakit/core';
 import { activeTable, useApp, type SessionStatus } from '../../state/appStore.ts';
+import { normalized } from '../../state/selection.ts';
 import './StatusBar.css';
 
 /** Textos da seção 5.3. */
@@ -15,6 +16,9 @@ export function StatusBar() {
   const doc = useApp((s) => s.doc);
   const table = useApp(activeTable);
   const status = useApp((s) => s.sessionStatus);
+  const selection = useApp((s) => s.selection);
+  const changes = useApp((s) => (s.revision >= 0 ? (s.doc?.marks.changes ?? 0) : 0));
+  useApp((s) => s.revision);
   const sessionLabel =
     status === 'none' ? null : (
       <span className={`dk-status-session is-${status}`} data-testid="session-status">
@@ -36,6 +40,16 @@ export function StatusBar() {
   if (source.encoding && source.format !== 'xlsx') parts.push(ENCODING_LABELS[source.encoding]);
   parts.push(`${formatInteger(table.rowOrder.length)} linhas`);
   parts.push(`${formatInteger(table.columns.length)} colunas`);
+  if (selection) {
+    const column = table.columns[selection.focus.c];
+    const r = normalized(selection, table);
+    const size = (r.r2 - r.r1 + 1) * (r.c2 - r.c1 + 1);
+    parts.push(
+      size > 1
+        ? `L${String(r.r1 + 1)}–L${String(r.r2 + 1)} · ${formatInteger(r.r2 - r.r1 + 1)} × ${formatInteger(r.c2 - r.c1 + 1)}`
+        : `L${String(selection.focus.r + 1)} ${column?.name ?? ''}`,
+    );
+  }
 
   return (
     <footer className="dk-statusbar" role="status">
@@ -43,6 +57,13 @@ export function StatusBar() {
         <span key={part}>{part}</span>
       ))}
       {sessionLabel}
+      <span
+        className={changes > 0 ? 'dk-status-changes is-dirty' : 'dk-status-changes'}
+        title="Alterações não exportadas"
+        data-testid="unexported-changes"
+      >
+        {formatInteger(changes)} ●
+      </span>
     </footer>
   );
 }

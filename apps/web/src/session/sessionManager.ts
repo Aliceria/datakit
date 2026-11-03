@@ -1,4 +1,4 @@
-import { SESSION_TIMING, encodeDocument } from '@datakit/core';
+import { SESSION_TIMING, emptyHistory, encodeDocument, serializeMarks } from '@datakit/core';
 import {
   ApiError,
   forkSession,
@@ -9,8 +9,9 @@ import {
   sendRelease,
   setSessionToken,
 } from '../api/client.ts';
-import { appStore, showError } from '../state/appStore.ts';
+import { appStore, showError, type SessionStatus } from '../state/appStore.ts';
 import { loadDocument } from '../state/importFlow.ts';
+import { hasPending, pendingOps, retrySoon, stopQueue, type QueueEvents } from './opQueue.ts';
 import {
   acquireTabLock,
   announce,
@@ -33,9 +34,12 @@ let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
 let retryTimer: ReturnType<typeof setTimeout> | undefined;
 let retryDelay = 1000;
 
-function setStatus(sessionStatus: ReturnType<typeof appStore.get>['sessionStatus']): void {
+function setStatus(sessionStatus: SessionStatus): void {
   appStore.set({ sessionStatus });
 }
+
+/** "Salvo" só quando a fila de operações está vazia. */
+const syncedStatus = (): SessionStatus => (hasPending() ? 'saving' : 'saved');
 
 /** Esta aba passa a ser a dona do token: segura o lock e responde no canal. */
 async function claim(token: string): Promise<void> {
@@ -70,7 +74,9 @@ async function beat(): Promise<void> {
   try {
     await sendHeartbeat();
     retryDelay = 1000;
-    if (appStore.get().sessionStatus !== 'saving') setStatus('saved');
+    setStatus(syncedStatus());
+    // A conexão voltou: a fila tenta de novo na hora.
+    retrySoon();
   } catch (err) {
     await handleSessionError(err);
   }
@@ -81,7 +87,7 @@ export async function handleSessionError(err: unknown): Promise<boolean> {
   if (!(err instanceof ApiError)) return false;
   if (err.code === 'NETWORK') {
     setStatus('offline');
-    if (retryTimer === undefined) {
+    if (retryTimer === undefined && heartbeatTimer !== undefined) {
       retryTimer = setTimeout(() => {
         retryTimer = undefined;
         void beat();
@@ -100,6 +106,48 @@ export async function handleSessionError(err: unknown): Promise<boolean> {
     return true;
   }
   return false;
+}
+
+// --- Fila de operações ------------------------------------------------------------------------
+
+export const queueHandlers: QueueEvents = {
+  onSaved: () => {
+    if (appStore.get().sessionStatus !== 'expired') setStatus('saved');
+  },
+  onPending: () => {
+    const status = appStore.get().sessionStatus;
+    if (status !== 'offline' && status !== 'expired') setStatus('saving');
+  },
+  onSessionError: async (err) => {
+    await handleSessionError(err);
+  },
+  onDiverged: () => {
+    void resyncFromServer();
+  },
+};
+
+/**
+ * O servidor e esta aba divergiram (sequência em conflito): o servidor é a fonte da verdade.
+ * Recarrega de lá e avisa, em vez de perder dados em silêncio.
+ */
+async function resyncFromServer(): Promise<void> {
+  stopQueue(true);
+  try {
+    await loadDocument();
+    setStatus(syncedStatus());
+    appStore.set({
+      message: {
+        title: 'Dados recarregados do servidor',
+        tone: 'warning',
+        lines: [
+          'Algumas alterações desta aba não chegaram ao servidor e foram desfeitas. ' +
+            'Os dados mostrados agora são os que estão salvos.',
+        ],
+      },
+    });
+  } catch (err) {
+    if (!(await handleSessionError(err))) showError('Não foi possível recarregar', errorText(err));
+  }
 }
 
 // --- Inicialização ----------------------------------------------------------------------------
@@ -122,7 +170,7 @@ export async function startSession(): Promise<void> {
     announce(hash);
     await resumeSession();
     await loadDocument();
-    setStatus('saved');
+    setStatus(syncedStatus());
     startHeartbeat();
   } catch (err) {
     if (err instanceof ApiError && err.code === 'SESSION_EXPIRED') {
@@ -140,8 +188,10 @@ async function copyFromCurrent(): Promise<void> {
     const copy = await forkSession();
     setSessionToken(copy);
     await claim(copy);
+    // A fila copiada do sessionStorage vale para a cópia: o servidor ignora as operações que a
+    // aba original já tinha entregado (mesmo opId).
     await loadDocument();
-    setStatus('saved');
+    setStatus(syncedStatus());
     startHeartbeat();
   } catch (err) {
     if (err instanceof ApiError && err.code === 'SESSION_EXPIRED') {
@@ -149,6 +199,7 @@ async function copyFromCurrent(): Promise<void> {
       return;
     }
     // Sem cópia, esta aba não pode usar o token da outra: volta à tela inicial.
+    stopQueue(true);
     setSessionToken(null);
     clearViewState();
     forget();
@@ -163,8 +214,10 @@ async function becomeCopy(message: string): Promise<void> {
     const copy = await forkSession();
     setSessionToken(copy);
     await claim(copy);
-    setStatus('saved');
+    setStatus(syncedStatus());
     startHeartbeat();
+    // As operações pendentes seguem para a cópia, com a mesma sequência.
+    retrySoon();
     appStore.set({
       message: { title: 'Sessão aberta em outra aba', tone: 'info', lines: [message] },
     });
@@ -183,6 +236,7 @@ export async function adoptSession(token: string): Promise<void> {
 /** "×" do arquivo: a sessão foi apagada no servidor. */
 export function endSession(): void {
   forget();
+  stopQueue(true);
   setSessionToken(null);
   clearViewState();
   setStatus('none');
@@ -192,12 +246,15 @@ export function endSession(): void {
 
 function expiredWithoutData(): void {
   forget();
+  stopQueue(true);
   setSessionToken(null);
   clearViewState();
   appStore.set({
     busy: undefined,
     doc: undefined,
     activeTableId: undefined,
+    selection: undefined,
+    editing: undefined,
     sessionStatus: 'none',
     message: {
       title: 'Sessão expirada',
@@ -216,20 +273,29 @@ function onExpired(): void {
     expiredWithoutData();
     return;
   }
-  appStore.set({ sessionStatus: 'expired', expired: { canRestore: true }, busy: undefined });
+  appStore.set({
+    sessionStatus: 'expired',
+    expired: { canRestore: true },
+    busy: undefined,
+    editing: undefined,
+  });
 }
 
-/** L14: envia o documento que a aba ainda tem e continua numa sessão nova. */
+/**
+ * L14: envia o documento que a aba ainda tem e continua numa sessão nova. As marcas de alteração
+ * vão junto (continuam "não exportadas"); o histórico de desfazer recomeça.
+ */
 export async function continueInNewSession(): Promise<void> {
   const { doc } = appStore.get();
   if (!doc) return;
   appStore.set({ expired: undefined, busy: 'Criando uma nova sessão…', sessionStatus: 'saving' });
   try {
-    const encoded = encodeDocument({
-      source: doc.manifest.source,
-      tables: doc.tables,
-      warnings: [],
-    });
+    // O documento enviado já inclui as operações pendentes; a fila antiga não pode ser reaplicada.
+    stopQueue(true);
+    const encoded = encodeDocument(
+      { source: doc.manifest.source, tables: doc.tables, warnings: [] },
+      { snapshotSeq: 0, history: emptyHistory(), marks: serializeMarks(doc.marks) },
+    );
     const json = new Blob([JSON.stringify(encoded)]);
     const gzipped = await new Response(
       json.stream().pipeThrough(new CompressionStream('gzip')),
@@ -241,18 +307,20 @@ export async function continueInNewSession(): Promise<void> {
     await adoptSession(result.sessionId);
     await loadDocument();
   } catch (err) {
-    appStore.set({ sessionStatus: 'expired', expired: { canRestore: true } });
+    appStore.set({ sessionStatus: 'expired', expired: { canRestore: true }, busy: undefined });
     showError('Não foi possível criar a nova sessão', errorText(err));
   }
 }
 
 export function leaveExpired(): void {
+  stopQueue(true);
   setSessionToken(null);
   clearViewState();
   appStore.set({
     expired: undefined,
     doc: undefined,
     activeTableId: undefined,
+    selection: undefined,
     sessionStatus: 'none',
   });
 }
@@ -267,9 +335,10 @@ function errorText(err: unknown): string {
 export function installPageLifecycle(): void {
   // Fechar e recarregar são indistinguíveis aqui: os dois agendam a exclusão, e a página nova
   // (se houver) cancela ao retomar (seção 5.2). Não há aviso nativo de "sair do site?".
+  // As operações pendentes vão no beacon se couberem; de qualquer forma, estão no sessionStorage.
   window.addEventListener('pagehide', () => {
     flushViewState();
-    if (appStore.get().doc && appStore.get().sessionStatus !== 'expired') sendRelease();
+    if (appStore.get().doc && appStore.get().sessionStatus !== 'expired') sendRelease(pendingOps());
   });
 
   // Volta pelo bfcache: a página não recarregou, então retoma a sessão por conta própria.
@@ -277,8 +346,9 @@ export function installPageLifecycle(): void {
     if (!event.persisted || !getSessionToken() || !appStore.get().doc) return;
     void resumeSession()
       .then(() => {
-        setStatus('saved');
+        setStatus(syncedStatus());
         startHeartbeat();
+        retrySoon();
       })
       .catch((err: unknown) => handleSessionError(err));
   });

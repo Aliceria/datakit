@@ -16,10 +16,12 @@ const dateTime = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyl
 export function FileInfo() {
   const doc = useApp((s) => s.doc);
   const table = useApp(activeTable);
+  // Estatísticas recalculadas depois das operações (seção 9).
+  useApp((s) => s.revision);
   if (!doc || !table) return <p className="dk-section-empty">Nenhum arquivo aberto.</p>;
 
   const { source } = doc.manifest;
-  const stats = doc.manifest.tables.find((t) => t.id === table.id)?.stats;
+  const stats = doc.stats[table.id];
   const hiddenSheets = doc.tables.filter((t) => t.hidden).length;
 
   const rows: Array<[string, string]> = [
@@ -49,7 +51,7 @@ export function FileInfo() {
     if (source.format === 'json') rows.push(['Células ausentes', formatInteger(stats.absentCells)]);
     rows.push(['Linhas duplicadas', formatInteger(stats.duplicateRows)]);
   }
-  rows.push(['Alterações não exportadas', '0']);
+  rows.push(['Alterações não exportadas', formatInteger(doc.marks.changes)]);
 
   return (
     <dl className="dk-info">
