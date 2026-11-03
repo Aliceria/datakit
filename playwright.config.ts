@@ -11,7 +11,8 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: Boolean(process.env['CI']),
   retries: process.env['CI'] ? 1 : 0,
-  reporter: [['list']],
+  // No CI, cada falha vira uma anotação no GitHub (visível sem baixar os logs).
+  reporter: process.env['CI'] ? [['github'], ['list']] : [['list']],
   globalSetup: './e2e/global-setup.ts',
   // Com todos os testes em paralelo, o servidor processa as importações com no máximo 2 workers
   // por vez (de propósito): algumas esperas passam dos 5 s padrão.
