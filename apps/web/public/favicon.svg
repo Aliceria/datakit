@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <title>DataKit</title>
+  <rect width="32" height="32" fill="#252526"/>
+  <g fill="none" stroke="#9d9d9d" stroke-width="1.5">
+    <rect x="4.75" y="6.75" width="22.5" height="18.5"/>
+    <path d="M4.75 12.75h22.5M4.75 19h22.5M12.25 6.75v18.5M19.75 6.75v18.5"/>
+  </g>
+  <rect x="12.25" y="12.75" width="7.5" height="6.25" fill="#2b7a80"/>
+</svg>

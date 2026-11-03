@@ -1,0 +1,37 @@
+.dk-panel {
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--bg-panel);
+}
+
+.dk-panel-left {
+  border-right: 1px solid var(--border);
+}
+
+.dk-panel-right {
+  border-left: 1px solid var(--border);
+}
+
+/* Gavetas abaixo de ~1100 px (seção 11.4). Fechadas, saem da tela e da ordem de tabulação. */
+@media (max-width: 1099px) {
+  .dk-panel {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    z-index: 20;
+    width: min(var(--panel-width), 90vw);
+    visibility: hidden;
+  }
+
+  .dk-panel-left {
+    left: 0;
+  }
+
+  .dk-panel-right {
+    right: 0;
+  }
+
+  .dk-panel.is-open {
+    visibility: visible;
+  }
+}

@@ -1,0 +1,10 @@
+node_modules/
+dist/
+coverage/
+apps/api/src/generated/
+apps/api/prisma/migrations/
+playwright-report/
+test-results/
+package-lock.json
+docs/SPEC.md
+docs/PRIMEIRA_MENSAGEM.md

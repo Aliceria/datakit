@@ -1,0 +1,84 @@
+.dk-toolbar {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  padding: 0 8px;
+  background: var(--bg-bar);
+  border-bottom: 1px solid var(--border);
+}
+
+.dk-brand {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 16px 0 4px;
+  margin-right: 8px;
+  border-right: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.dk-brand-name {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.dk-brand-subtitle {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.dk-toolbar-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 72px;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  cursor: pointer;
+}
+
+.dk-toolbar-button:hover:not(:disabled) {
+  border-color: var(--border);
+  background: var(--bg-panel);
+}
+
+.dk-toolbar-button[aria-expanded='true'] {
+  border-color: var(--accent);
+}
+
+.dk-toolbar-button:disabled {
+  color: var(--text-disabled);
+  cursor: default;
+}
+
+.dk-toolbar-button-label {
+  font-size: 11px;
+}
+
+/* Botões das gavetas só existem quando os painéis viram gavetas. */
+.dk-toolbar-drawers {
+  display: none;
+  margin-left: auto;
+  gap: 4px;
+}
+
+@media (max-width: 1099px) {
+  .dk-toolbar-drawers {
+    display: flex;
+  }
+}
+
+@media (max-width: 699px) {
+  .dk-brand-subtitle {
+    display: none;
+  }
+
+  .dk-toolbar-button {
+    min-width: 60px;
+  }
+}

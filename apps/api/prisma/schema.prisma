@@ -1,0 +1,90 @@
+// Esquema do banco do DataKit (docs/PLANO.md, seção 4.2).
+// Pragmas (WAL, secure_delete, auto_vacuum) são aplicados na inicialização: src/persistence/pragmas.ts.
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "ts"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+/// Sessão temporária. O token nunca é gravado: `id` é o SHA-256 dele em hexadecimal.
+model Session {
+  id               String    @id
+  createdAt        DateTime  @default(now())
+  /// createdAt + duração máxima (seção 0)
+  expiresAt        DateTime
+  lastSeenAt       DateTime  @default(now())
+  /// Exclusão agendada pelo pagehide; null quando a aba está ativa
+  deleteAt         DateTime?
+  activeInstanceId String?
+  ipHash           String
+  headSeq          Int       @default(0)
+  snapshotVersion  Int       @default(0)
+  snapshotSeq      Int       @default(0)
+  /// JSON: nome, extensão, formato, tamanho, codificação, delimitador, abas, avisos
+  sourceMeta       String
+  /// JSON: seq da última exportação completa de cada tabela
+  exportState      String    @default("{}")
+  bytesUsed        Int       @default(0)
+
+  manifests SnapshotManifest[]
+  chunks    SnapshotChunk[]
+  ops       OpLog[]
+
+  @@index([lastSeenAt])
+  @@index([deleteAt])
+  @@index([expiresAt])
+  @@index([ipHash])
+}
+
+/// Manifesto do snapshot (gzip): tabelas, colunas, ordem das linhas, marcas, pilhas de desfazer/refazer
+model SnapshotManifest {
+  sessionId String
+  version   Int
+  data      Bytes
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@id([sessionId, version])
+}
+
+/// Bloco do snapshot (gzip) com as células de até 4.096 IDs de linha consecutivos
+model SnapshotChunk {
+  sessionId  String
+  version    Int
+  tableId    String
+  chunkIndex Int
+  data       Bytes
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@id([sessionId, version, tableId, chunkIndex])
+}
+
+/// Log de operações desde o último snapshot (payload gzip: intenção + efeito)
+model OpLog {
+  sessionId String
+  seq       Int
+  opId      String
+  payload   Bytes
+  createdAt DateTime @default(now())
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@id([sessionId, seq])
+  @@unique([sessionId, opId])
+}
+
+/// Importações por IP, para o limite por hora sobreviver a reinícios
+model ImportEvent {
+  id     Int      @id @default(autoincrement())
+  ipHash String
+  at     DateTime @default(now())
+
+  @@index([ipHash, at])
+}

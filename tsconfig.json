@@ -1,0 +1,14 @@
+{
+  // Arquivos da raiz: configs, scripts e testes de ponta a ponta.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2024", "DOM"],
+    "types": ["node"],
+    "noEmit": true,
+    "allowJs": true,
+    "checkJs": true
+  },
+  "include": ["*.config.ts", "e2e", "scripts"]
+}

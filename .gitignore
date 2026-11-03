@@ -1,0 +1,38 @@
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Banco local e arquivos temporários
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+/data/
+.tmp/
+
+# Cliente Prisma gerado
+apps/api/src/generated/
+
+# Playwright
+playwright-report/
+test-results/
+blob-report/
+
+# Ambiente
+.env
+.env.*
+!.env.example
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Configuração local do Claude Code
+.claude/
+
+# Documentação local (fora do repositório)
+docs/
+
+# Instruções locais do agente (fora do repositório)
+CLAUDE.md

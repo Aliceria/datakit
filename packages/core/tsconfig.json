@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    // Sem DOM e sem tipos do Node: o core roda igual no navegador e no servidor.
+    "lib": ["ES2024"],
+    "types": []
+  },
+  "include": ["src"]
+}

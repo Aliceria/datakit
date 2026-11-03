@@ -1,0 +1,38 @@
+.dk-app {
+  display: grid;
+  grid-template-rows: var(--toolbar-height) minmax(0, 1fr) var(--statusbar-height);
+  height: 100%;
+}
+
+.dk-main {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--panel-width) minmax(0, 1fr) var(--panel-width);
+  min-height: 0;
+}
+
+.dk-workspace {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  background: var(--bg-app);
+}
+
+.dk-drawer-backdrop {
+  display: none;
+}
+
+/* Abaixo de ~1100 px os painéis viram gavetas recolhíveis (seção 11.4). */
+@media (max-width: 1099px) {
+  .dk-main {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dk-drawer-backdrop {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    background: rgb(0 0 0 / 0.4);
+  }
+}
