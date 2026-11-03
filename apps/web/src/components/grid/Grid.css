@@ -212,3 +212,34 @@
   color: var(--text-muted);
   font-family: var(--font-grid);
 }
+
+/* --- Filtros e ordenação (Etapa 6) --- */
+
+.dk-grid-headbtn {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 1px;
+  height: 16px;
+  padding: 0 2px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-disabled);
+  cursor: pointer;
+}
+
+.dk-grid-headcell:hover .dk-grid-headbtn,
+.dk-grid-headbtn:hover {
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+
+.dk-grid-headbtn.is-on {
+  color: var(--accent-text);
+}
+
+.dk-grid-sortprio {
+  font-family: var(--font-grid);
+  font-size: 9px;
+}

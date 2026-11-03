@@ -49,6 +49,7 @@ export type Effect =
   | { type: 'insertColumns'; tableId: string; columns: InsertedColumn[] }
   | { type: 'deleteColumns'; tableId: string; colIds: string[] }
   | { type: 'renameColumn'; tableId: string; colId: string; name: string; path?: string[] }
+  | { type: 'reorderRows'; tableId: string; order: number[] }
   | { type: 'batch'; effects: Effect[] };
 
 export class EffectError extends Error {}
@@ -241,6 +242,23 @@ export function applyEffect(tables: Table[], effect: Effect): Effect {
       return inverse;
     }
 
+    case 'reorderRows': {
+      // "Aplicar ordem atual aos dados" (seção 7.4): a ordem vem resolvida e precisa ser uma
+      // permutação exata das linhas atuais.
+      const table = findTable(tables, effect.tableId);
+      const current = new Set(table.rowOrder);
+      const seen = new Set<number>();
+      for (const rowId of effect.order) {
+        if (!current.has(rowId) || seen.has(rowId))
+          throw new EffectError('Ordem de linhas inválida');
+        seen.add(rowId);
+      }
+      if (seen.size !== current.size) throw new EffectError('Ordem de linhas inválida');
+      const previous = table.rowOrder;
+      table.rowOrder = [...effect.order];
+      return { type: 'reorderRows', tableId: table.id, order: previous };
+    }
+
     case 'batch': {
       const inverses: Effect[] = [];
       try {
@@ -281,6 +299,7 @@ export function forEachTouched(
       return;
     case 'deleteRows':
     case 'deleteColumns':
+    case 'reorderRows':
       visit({ tableId: effect.tableId });
       return;
     case 'batch':

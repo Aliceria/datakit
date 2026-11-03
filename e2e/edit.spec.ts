@@ -260,7 +260,10 @@ test('inserir e excluir linhas e colunas pelo menu, renomear com duplo clique', 
   await page.getByRole('menuitem', { name: 'Inserir coluna à direita' }).click();
   await expect(grid(page).getByRole('columnheader', { name: /coluna_3/ })).toBeVisible();
 
-  await grid(page).getByRole('columnheader', { name: /^a/ }).dblclick();
+  await grid(page)
+    .getByRole('columnheader', { name: /^a/ })
+    .getByText('a', { exact: true })
+    .dblclick();
   await page.getByRole('textbox', { name: 'Nome' }).fill('primeira');
   await page.keyboard.press('Enter');
   await expect(grid(page).getByRole('columnheader', { name: /primeira/ })).toBeVisible();

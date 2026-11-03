@@ -61,6 +61,11 @@ async function request(path: string, init: RequestInit = {}): Promise<Response> 
       'Sem conexão com o servidor. Verifique a internet e tente de novo.',
     );
   }
+  // 502/503/504 vêm do proxy quando a API está fora do ar (reinício, deploy): é o mesmo que
+  // estar sem conexão, e quem chamou tenta de novo em vez de desistir.
+  if (res.status === 502 || res.status === 503 || res.status === 504) {
+    throw new ApiError(res.status, 'NETWORK', 'O servidor não está respondendo. Tentando de novo…');
+  }
   if (!res.ok) {
     let code = 'HTTP_' + String(res.status);
     let message = 'Não foi possível concluir a operação. Tente novamente.';

@@ -10,6 +10,13 @@ import {
 } from '@datakit/core';
 import { enqueue, nextSeq } from '../session/opQueue.ts';
 import { appStore, showError } from './appStore.ts';
+import { adjustViews } from './view.ts';
+
+function tablesOf(effect: Effect): Set<string> {
+  const ids = new Set<string>();
+  forEachTouched(effect, (t) => ids.add(t.tableId));
+  return ids;
+}
 
 // Controlador do documento: o único caminho para alterar dados no navegador. Aplica a operação
 // localmente com o core (resposta imediata) e a põe na fila para o servidor (seção 4.1).
@@ -54,6 +61,7 @@ function run(op: LogOp, effect: Effect): boolean {
   }
   enqueue(op);
   markDirty(effect);
+  adjustViews(tablesOf(effect));
   scheduleDerived();
   bump();
   return true;
@@ -90,6 +98,7 @@ export function replayPending(ops: readonly LogOp[]): number {
     }
   }
   for (const table of doc.tables) dirty.set(table.id, 'all');
+  adjustViews(doc.tables.map((t) => t.id));
   scheduleDerived();
   return applied;
 }

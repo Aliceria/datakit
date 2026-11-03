@@ -55,3 +55,8 @@ export * from './ops/history.ts';
 export * from './ops/nativeType.ts';
 export * from './ops/planners.ts';
 export { parseTsv, toTsv } from './clipboard/tsv.ts';
+export * from './util/decimal.ts';
+export * from './view/facts.ts';
+export * from './view/filter.ts';
+export * from './view/sort.ts';
+export * from './view/search.ts';

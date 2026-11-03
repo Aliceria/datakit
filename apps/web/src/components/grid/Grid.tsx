@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { Filter } from 'lucide-react';
 import {
   NATIVE,
   STATE_VALUE,
@@ -36,7 +37,10 @@ import {
   selectRows,
   setSelection,
 } from '../../state/selection.ts';
+import { setColumnFilter, setSort, toggleSort } from '../../state/view.ts';
 import { ContextMenu, type MenuItem } from '../common/ContextMenu.tsx';
+import { FilterDialog } from '../dialogs/FilterDialog.tsx';
+import { SortButton } from './SortButton.tsx';
 import { Modal } from '../dialogs/Modal.tsx';
 import { CellEditor, type EditorMove } from './CellEditor.tsx';
 import { cellTitle, renderCell } from './cellDisplay.tsx';
@@ -85,6 +89,14 @@ export function Grid({ table, inference, marks, readOnly }: Props) {
   const selection = useApp((s) => s.selection);
   const editing = useApp((s) => s.editing);
   useApp((s) => s.revision);
+  const view = useApp((s) => s.views[table.id]);
+  // Linhas visíveis, na ordem mostrada (filtros e ordenação só mudam a vista).
+  const viewRows = view?.rowIds ?? table.rowOrder;
+  const dataPosition = useMemo(
+    () => new Map(table.rowOrder.map((id, i) => [id, i])),
+    [table.rowOrder],
+  );
+  const [filtering, setFiltering] = useState<number | undefined>();
   const [menu, setMenu] = useState<MenuState | undefined>();
   const [renaming, setRenaming] = useState<number | undefined>();
   const dragging = useRef(false);
@@ -107,7 +119,7 @@ export function Grid({ table, inference, marks, readOnly }: Props) {
   // é renderizado normalmente, só sem a otimização automática.
   // eslint-disable-next-line react-hooks/incompatible-library
   const rows = useVirtualizer({
-    count: table.rowOrder.length,
+    count: viewRows.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: () => ROW_HEIGHT,
     paddingStart: HEADER_HEIGHT,
@@ -151,6 +163,13 @@ export function Grid({ table, inference, marks, readOnly }: Props) {
   }, [focusR, focusC, rows, columns]);
 
   const range = selection ? normalized(selection, table) : undefined;
+  const filteredCols = new Set(view?.spec.filters.map((f) => f.colId) ?? []);
+  const sortOf = (colId: string) => {
+    const keys = view?.spec.sort ?? [];
+    const index = keys.findIndex((k) => k.colId === colId);
+    const key = keys[index];
+    return key ? { direction: key.direction, priority: index + 1 } : undefined;
+  };
   const inRange = (r: number, c: number) =>
     range !== undefined && r >= range.r1 && r <= range.r2 && c >= range.c1 && c <= range.c2;
 
@@ -162,7 +181,7 @@ export function Grid({ table, inference, marks, readOnly }: Props) {
 
   const startEditing = (r: number, c: number, replaceWith?: string) => {
     if (readOnly) return;
-    const rowId = table.rowOrder[r];
+    const rowId = viewRows[r];
     const column = table.columns[c];
     const data = column && table.data.get(column.id);
     if (rowId === undefined || !data) return;
@@ -192,7 +211,7 @@ export function Grid({ table, inference, marks, readOnly }: Props) {
 
   // --- Navegação ------------------------------------------------------------------------------
 
-  const lastRow = table.rowOrder.length - 1;
+  const lastRow = viewRows.length - 1;
   const lastCol = table.columns.length - 1;
 
   const moveFocus = (r: number, c: number, extend: boolean) => {
@@ -216,7 +235,7 @@ export function Grid({ table, inference, marks, readOnly }: Props) {
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.target !== e.currentTarget || appStore.get().editing) return;
-    if (table.rowOrder.length === 0 || table.columns.length === 0) return;
+    if (viewRows.length === 0 || table.columns.length === 0) return;
     const sel = appStore.get().selection ?? {
       mode: 'cells' as const,
       anchor: { r: 0, c: 0 },
@@ -326,6 +345,57 @@ export function Grid({ table, inference, marks, readOnly }: Props) {
     });
   };
 
+  /** Filtro e ordenação no menu da coluna (seção 7.4). */
+  const columnViewItems = (c: number, nCols: number): MenuItem[] => {
+    const colId = table.columns[c]?.id;
+    if (!colId || nCols > 1) return [];
+    const items: MenuItem[] = [
+      {
+        kind: 'item',
+        label: 'Filtrar…',
+        onSelect: () => {
+          setFiltering(c);
+        },
+      },
+    ];
+    if (filteredCols.has(colId)) {
+      items.push({
+        kind: 'item',
+        label: 'Remover filtro',
+        onSelect: () => {
+          setColumnFilter(table.id, colId, undefined);
+        },
+      });
+    }
+    items.push(
+      { kind: 'separator' },
+      {
+        kind: 'item',
+        label: 'Ordenar crescente',
+        onSelect: () => {
+          setSort(table.id, colId, 'asc');
+        },
+      },
+      {
+        kind: 'item',
+        label: 'Ordenar decrescente',
+        onSelect: () => {
+          setSort(table.id, colId, 'desc');
+        },
+      },
+    );
+    if (sortOf(colId)) {
+      items.push({
+        kind: 'item',
+        label: 'Remover ordenação',
+        onSelect: () => {
+          setSort(table.id, colId, undefined);
+        },
+      });
+    }
+    return items;
+  };
+
   const menuItems = (kind: MenuState['kind']): MenuItem[] => {
     const many = (n: number, one: string, more: string) => (n > 1 ? more : one);
     const r = range ?? { r1: 0, r2: 0, c1: 0, c2: 0 };
@@ -408,6 +478,8 @@ export function Grid({ table, inference, marks, readOnly }: Props) {
     ];
     if (kind === 'column') {
       return [
+        ...columnViewItems(r.c1, nCols),
+        { kind: 'separator' },
         {
           kind: 'item',
           label: 'Renomear…',
@@ -492,7 +564,8 @@ export function Grid({ table, inference, marks, readOnly }: Props) {
     const column = table.columns[c];
     const data = column && table.data.get(column.id);
     if (!column || !data) return;
-    let longest = column.name.length + 6;
+    // Nome + indicador de tipo e seta de ordenação.
+    let longest = column.name.length + 9;
     for (const rowId of table.rowOrder.slice(0, 2000)) {
       const raw = data.raw[rowId];
       if (raw && raw.length > longest) longest = raw.length;
@@ -515,7 +588,7 @@ export function Grid({ table, inference, marks, readOnly }: Props) {
         className="dk-grid"
         role="grid"
         aria-label={`Dados de ${table.name}`}
-        aria-rowcount={table.rowOrder.length + 1}
+        aria-rowcount={viewRows.length + 1}
         aria-colcount={table.columns.length}
         aria-multiselectable="true"
         tabIndex={0}
@@ -603,6 +676,31 @@ export function Grid({ table, inference, marks, readOnly }: Props) {
                   }}
                 >
                   <span className="dk-grid-headname">{column.name}</span>
+                  {filteredCols.has(column.id) && (
+                    <button
+                      type="button"
+                      className="dk-grid-headbtn is-on"
+                      tabIndex={-1}
+                      aria-label={`Filtro em ${column.name}`}
+                      title="Filtro ativo — clique para editar"
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                      }}
+                      onClick={() => {
+                        setFiltering(vc.index);
+                      }}
+                    >
+                      <Filter size={11} aria-hidden="true" />
+                    </button>
+                  )}
+                  <SortButton
+                    columnName={column.name}
+                    sortKey={sortOf(column.id)}
+                    multi={(view?.spec.sort.length ?? 0) > 1}
+                    onToggle={(additive) => {
+                      toggleSort(table.id, column.id, additive);
+                    }}
+                  />
                   <span className="dk-grid-badge" title={`Tipo inferido: ${TYPE_LABEL[type]}`}>
                     {TYPE_BADGE[type]}
                   </span>
@@ -625,7 +723,7 @@ export function Grid({ table, inference, marks, readOnly }: Props) {
           </div>
 
           {rows.getVirtualItems().map((vr) => {
-            const rowId = table.rowOrder[vr.index];
+            const rowId = viewRows[vr.index];
             if (rowId === undefined) return null;
             const rowSelected = range !== undefined && vr.index >= range.r1 && vr.index <= range.r2;
             const rowEdited = marks?.rows.has(rowId) ?? false;
@@ -656,7 +754,8 @@ export function Grid({ table, inference, marks, readOnly }: Props) {
                     setMenu({ x: e.clientX, y: e.clientY, kind: 'row' });
                   }}
                 >
-                  {vr.index + 1}
+                  {/* Com filtro ou ordenação, mostra a posição original da linha nos dados. */}
+                  {(view ? (dataPosition.get(rowId) ?? vr.index) : vr.index) + 1}
                 </div>
                 {virtualColumns.map((vc) => {
                   const column = table.columns[vc.index];
@@ -740,6 +839,17 @@ export function Grid({ table, inference, marks, readOnly }: Props) {
           items={menuItems(menu.kind)}
           onClose={() => {
             setMenu(undefined);
+            focusGrid();
+          }}
+        />
+      )}
+
+      {filtering !== undefined && table.columns[filtering] && (
+        <FilterDialog
+          table={table}
+          colId={table.columns[filtering].id}
+          onClose={() => {
+            setFiltering(undefined);
             focusGrid();
           }}
         />

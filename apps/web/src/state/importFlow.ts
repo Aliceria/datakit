@@ -32,6 +32,7 @@ import { requestPreview } from '../workers/previewClient.ts';
 import { appStore, showError, type LoadedDocument, type PreviewState } from './appStore.ts';
 import { replayPending } from './editor.ts';
 import { restoreSelection } from './selection.ts';
+import { restoreViews } from './view.ts';
 
 // Fluxo de importação (seções 2.3 e 6.1): validar → pré-visualizar se houver o que confirmar →
 // enviar → baixar o documento processado pelo servidor.
@@ -252,6 +253,8 @@ async function loadOnce(): Promise<void> {
 
   const pending = startQueue(key, headSeq, queueHandlers);
   if (pending.length > 0) replayPending(pending);
+  // Filtros e ordenação guardados voltam antes da seleção (que é um índice da vista).
+  restoreViews();
   if (activeTableId) restoreSelection(activeTableId);
   appStore.set((s) => ({ revision: s.revision + 1 }));
 }

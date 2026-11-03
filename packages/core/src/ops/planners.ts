@@ -244,3 +244,25 @@ export function planPaste(
     cellCount: cells.length,
   };
 }
+
+/** "Aplicar ordem atual aos dados" (seção 7.4): grava a ordem resolvida, que pode ser desfeita. */
+export function planApplyOrder(table: Table, order: readonly number[]): Effect {
+  return { type: 'reorderRows', tableId: table.id, order: [...order] };
+}
+
+/** Textos diferentes por célula numa operação só (ex.: "substituir todas"), com o tipo nativo de cada uma. */
+export function planSetTexts(
+  table: Table,
+  items: ReadonlyArray<CellRef & { raw: string }>,
+): Effect {
+  const natives = columnNatives(table, new Set(items.map((i) => i.colId)));
+  return {
+    type: 'setCells',
+    tableId: table.id,
+    cells: items.map(({ rowId, colId, raw }) => ({
+      rowId,
+      colId,
+      value: typedValue(table, { rowId, colId }, raw, natives.get(colId) ?? 0),
+    })),
+  };
+}

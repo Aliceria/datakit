@@ -9,6 +9,8 @@
   --text-muted: #9d9d9d;
   --text-disabled: #5f5f5f;
   --accent: #2b7a80;
+  /* Destaque em texto e ícones pequenos: a mesma cor, mais clara, para manter o contraste (AA). */
+  --accent-text: #4fb3ba;
   --link: #4ea1ff;
   --danger: #e05555;
   --warning: #d9a441;

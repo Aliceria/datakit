@@ -76,6 +76,9 @@ const effect: z.ZodType = z.lazy(() =>
       .object({ type: z.literal('deleteColumns'), tableId, colIds: z.array(colId).max(1000) })
       .strict(),
     z
+      .object({ type: z.literal('reorderRows'), tableId, order: z.array(rowId).max(MAX_ITEMS) })
+      .strict(),
+    z
       .object({
         type: z.literal('renameColumn'),
         tableId,

@@ -168,7 +168,19 @@ export async function startSession(): Promise<void> {
 
   try {
     announce(hash);
-    await resumeSession();
+    // Sem conexão (ou API reiniciando) não é sessão perdida: tenta de novo, com espera crescente.
+    for (let delay = 1000; ; delay = Math.min(delay * 2, RETRY_MAX_MS)) {
+      try {
+        await resumeSession();
+        break;
+      } catch (err) {
+        if (!(err instanceof ApiError && err.code === 'NETWORK')) throw err;
+        appStore.set({ busy: 'Sem conexão com o servidor — tentando novamente…' });
+        setStatus('offline');
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+    appStore.set({ busy: 'Recuperando a sessão…' });
     await loadDocument();
     setStatus(syncedStatus());
     startHeartbeat();

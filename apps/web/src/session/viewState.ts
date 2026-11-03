@@ -3,6 +3,8 @@
 // Guarda aba ativa, rolagem, célula selecionada e larguras de coluna. Filtros, ordenação e busca
 // entram com essas funcionalidades (Etapa 6).
 
+import type { ColumnFilter, SortKey } from '@datakit/core';
+
 const KEY = 'dk.view';
 
 export type TableView = {
@@ -11,6 +13,8 @@ export type TableView = {
   /** Célula em foco, por IDs (estáveis), para sobreviver a inserções e exclusões. */
   focus?: { rowId: number; colId: string };
   widths?: Record<string, number>;
+  /** Filtros e ordenação (seção 4.3: não são operação, mas voltam depois do F5). */
+  spec?: { filters: ColumnFilter[]; sort: SortKey[] };
 };
 
 export type ViewState = {
@@ -18,6 +22,7 @@ export type ViewState = {
   documentKey: string;
   activeTableId?: string;
   tables: Record<string, TableView>;
+  search?: SearchView;
 };
 
 export const documentKey = (source: { fileName: string; importedAt: string }): string =>
@@ -93,6 +98,36 @@ export function rememberWidth(tableId: string, colId: string, width: number): vo
   if (!view) return;
   view.widths = { ...view.widths, [colId]: width };
   flushViewState();
+}
+
+export function rememberViewSpec(
+  tableId: string,
+  spec: { filters: ColumnFilter[]; sort: SortKey[] } | undefined,
+): void {
+  const view = entry(tableId);
+  if (!view) return;
+  if (spec) view.spec = spec;
+  else delete view.spec;
+  flushViewState();
+}
+
+/** Busca do painel: uma por arquivo (seção 4.3). */
+export type SearchView = {
+  query: string;
+  colId: string | null;
+  caseSensitive: boolean;
+  ignoreAccents: boolean;
+  wholeCell: boolean;
+};
+
+export function rememberSearch(search: SearchView): void {
+  if (!current) return;
+  current.search = search;
+  schedule();
+}
+
+export function savedSearch(): SearchView | undefined {
+  return current?.search;
 }
 
 export function tableView(tableId: string): TableView | undefined {

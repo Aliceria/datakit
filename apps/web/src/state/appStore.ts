@@ -11,6 +11,7 @@ import type {
   Table,
 } from '@datakit/core';
 import { createStore, useStore } from './store.ts';
+import type { ViewModel } from './view.ts';
 
 /** Documento aberto: é o estado de edição do core (tabelas, histórico, marcas) + derivados. */
 export type LoadedDocument = {
@@ -89,6 +90,8 @@ export type AppState = {
   editing: EditingState | undefined;
   /** Sessão expirou com a aba aberta; canRestore quando ainda há dados na memória (L14). */
   expired: { canRestore: boolean } | undefined;
+  /** Vistas com filtro ou ordenação, por tabela (sem entrada = ordem dos dados). */
+  views: Record<string, ViewModel>;
 };
 
 export const appStore = createStore<AppState>({
@@ -103,6 +106,7 @@ export const appStore = createStore<AppState>({
   revision: 0,
   selection: undefined,
   editing: undefined,
+  views: {},
 });
 
 export const useApp = <S>(selector: (state: AppState) => S): S => useStore(appStore, selector);

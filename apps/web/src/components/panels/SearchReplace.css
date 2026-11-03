@@ -1,0 +1,131 @@
+.dk-search .dk-form-row {
+  grid-template-columns: 96px minmax(0, 1fr);
+}
+
+.dk-search-options {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 3px 0;
+}
+
+.dk-search-count {
+  min-height: 16px;
+  margin: 4px 0;
+  color: var(--text-muted);
+}
+
+.dk-search-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.dk-search-buttons .dk-button {
+  min-width: 0;
+}
+
+.dk-search-list {
+  max-height: 260px;
+  margin: 6px 0 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid var(--border);
+}
+
+.dk-search-hit {
+  display: grid;
+  gap: 1px;
+  width: 100%;
+  padding: 3px 6px;
+  border: 0;
+  border-bottom: 1px solid #2a2a2a;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dk-search-hit:hover,
+.dk-search-hit:focus-visible {
+  background: var(--bg-bar);
+}
+
+.dk-search-hit-pos {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.dk-search-hit-text {
+  overflow: hidden;
+  font-family: var(--font-grid);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dk-scope {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 10px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+}
+
+.dk-scope legend {
+  padding: 0 4px;
+  color: var(--text-muted);
+}
+
+.dk-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.dk-panel-actions .dk-button {
+  min-width: 0;
+}
+
+.dk-view-list {
+  margin: 0 0 6px;
+  padding: 0;
+  list-style: none;
+}
+
+.dk-view-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 2px 0;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+.dk-view-remove {
+  flex: none;
+  width: 20px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.dk-view-remove:hover {
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.dk-view-stale {
+  margin: 6px 0;
+  color: var(--warning);
+}
+
+.dk-view-subtitle {
+  margin: 8px 0 3px;
+  color: var(--text-muted);
+}

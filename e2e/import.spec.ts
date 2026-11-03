@@ -10,6 +10,37 @@ async function chooseFile(page: Page, name: string) {
 const grid = (page: Page) => page.getByRole('grid');
 const dialog = (page: Page) => page.getByRole('dialog');
 
+/** Coluna da grade, de cima para baixo (texto das células visíveis). */
+async function column(page: Page, index: number): Promise<string[]> {
+  return grid(page)
+    .getByRole('row')
+    .evaluateAll(
+      (rows, i) =>
+        rows
+          .filter((r) => r.querySelector('[role="gridcell"]'))
+          .sort(
+            (a, b) =>
+              Number(a.getAttribute('aria-rowindex')) - Number(b.getAttribute('aria-rowindex')),
+          )
+          .map(
+            (r) =>
+              r.querySelector(`[role="gridcell"][aria-colindex="${String(i + 1)}"]`)?.textContent ??
+              '',
+          ),
+      index,
+    );
+}
+
+async function filterColumn(page: Page, name: string, condition: string, value: string) {
+  await grid(page)
+    .getByRole('columnheader', { name: new RegExp(`^${name}`) })
+    .click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Filtrar…' }).click();
+  await page.getByLabel('Condição').selectOption({ label: condition });
+  await dialog(page).getByRole('textbox', { name: 'Valor', exact: true }).fill(value);
+  await dialog(page).getByRole('button', { name: 'Aplicar' }).click();
+}
+
 /** Espera a pré-visualização abrir e confirma com Enter. */
 async function confirmWithEnter(page: Page) {
   await expect(dialog(page).getByRole('button', { name: 'Abrir' })).toBeFocused();
@@ -157,11 +188,11 @@ test('arrastar e soltar abre o arquivo', async ({ page }) => {
   }).toPass({ timeout: 10_000 });
 });
 
-test('desempenho: CSV de 100.000 linhas × 20 colunas abre e rola', async ({
+test('desempenho: CSV de 100.000 linhas × 20 colunas abre, rola, ordena, filtra e busca', async ({
   page,
   browserName,
 }) => {
-  test.setTimeout(60_000);
+  test.setTimeout(90_000);
   const started = Date.now();
   await chooseFile(page, 'large/100k.csv');
   await expect(dialog(page)).toContainText('Mostrando as primeiras 20 linhas');
@@ -204,4 +235,45 @@ test('desempenho: CSV de 100.000 linhas × 20 colunas abre e rola', async ({
   // Meta: 50 ms (medido entre 15 e 33 ms nesta máquina). Com todos os testes em paralelo a
   // máquina fica disputada; a margem evita falso negativo. A medição isolada é da Etapa 9.
   expect(ms).toBeLessThan(100);
+
+  // Etapa 6: ordenar, filtrar e buscar na mesma tabela (uma importação de 100k por navegador).
+  await gridEl.evaluate((el) => {
+    el.scrollTop = 0;
+  });
+  const timed = async (label: string, action: () => Promise<void>, done: () => Promise<void>) => {
+    const t0 = Date.now();
+    await action();
+    await done();
+    const ms = Date.now() - t0;
+    console.log(`[${browserName}] ${label}: ${String(ms)} ms`);
+    return ms;
+  };
+
+  const sortMs = await timed(
+    'ordenar 100k por valor (decrescente)',
+    async () => {
+      const button = grid(page).getByRole('button', { name: /por valor/ });
+      await button.click();
+      await button.click();
+    },
+    async () => {
+      await expect.poll(async () => (await column(page, 3))[0]).toBe('14285,99');
+    },
+  );
+  const filterMs = await timed(
+    'filtrar 100k (cidade contém "paulo")',
+    () => filterColumn(page, 'cidade', 'contém', 'paulo'),
+    async () => {
+      await expect(page.getByRole('status').last()).toContainText('33.333 de 100.000 linhas');
+    },
+  );
+  const searchMs = await timed(
+    'buscar em 100k',
+    () => page.getByRole('textbox', { name: 'Pesquisar', exact: true }).fill('Pessoa 99999'),
+    async () => {
+      await expect(page.getByText(/^1 célula$/)).toBeVisible({ timeout: 15_000 });
+    },
+  );
+  // Meta da seção 13: ~1 s cada, num notebook comum. Com todos os testes em paralelo, folga.
+  for (const t of [sortMs, filterMs, searchMs]) expect(t).toBeLessThan(5000);
 });

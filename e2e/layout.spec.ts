@@ -18,12 +18,7 @@ test.describe('esqueleto do layout', () => {
     for (const title of ['Informações do arquivo', 'Inspetor de coluna', 'Inspetor de célula']) {
       await expect(page.getByRole('heading', { name: title })).toBeVisible();
     }
-    for (const title of [
-      'Ir para',
-      'Pesquisar e substituir',
-      'Filtros e ordenação',
-      'Tratamento de dados',
-    ]) {
+    for (const title of ['Ir para', 'Pesquisar e substituir', 'Filtros e ordenação']) {
       await expect(page.getByRole('heading', { name: title })).toBeVisible();
     }
 

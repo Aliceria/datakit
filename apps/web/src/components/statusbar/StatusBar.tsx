@@ -17,6 +17,7 @@ export function StatusBar() {
   const table = useApp(activeTable);
   const status = useApp((s) => s.sessionStatus);
   const selection = useApp((s) => s.selection);
+  const views = useApp((s) => s.views);
   const changes = useApp((s) => (s.revision >= 0 ? (s.doc?.marks.changes ?? 0) : 0));
   useApp((s) => s.revision);
   const sessionLabel =
@@ -38,7 +39,13 @@ export function StatusBar() {
   const { source } = doc.manifest;
   const parts = [source.format.toUpperCase()];
   if (source.encoding && source.format !== 'xlsx') parts.push(ENCODING_LABELS[source.encoding]);
-  parts.push(`${formatInteger(table.rowOrder.length)} linhas`);
+  const view = views[table.id];
+  // Com filtro ativo: "X de Y linhas" (seção 7.4).
+  parts.push(
+    view?.spec.filters.length
+      ? `${formatInteger(view.rowIds.length)} de ${formatInteger(table.rowOrder.length)} linhas`
+      : `${formatInteger(table.rowOrder.length)} linhas`,
+  );
   parts.push(`${formatInteger(table.columns.length)} colunas`);
   if (selection) {
     const column = table.columns[selection.focus.c];

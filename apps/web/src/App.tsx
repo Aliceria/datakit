@@ -7,7 +7,9 @@ import {
 } from './components/dialogs/MessageDialogs.tsx';
 import { PreviewDialog } from './components/dialogs/PreviewDialog.tsx';
 import { LeftPanel } from './components/panels/LeftPanel.tsx';
+import { FOCUS_GOTO_EVENT } from './components/panels/GoTo.tsx';
 import { RightPanel } from './components/panels/RightPanel.tsx';
+import { FOCUS_SEARCH_EVENT } from './components/panels/SearchReplace.tsx';
 import { StatusBar } from './components/statusbar/StatusBar.tsx';
 import { Toolbar } from './components/toolbar/Toolbar.tsx';
 import { Workspace } from './components/workspace/Workspace.tsx';
@@ -67,6 +69,18 @@ export function App() {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'o') {
         event.preventDefault();
         chooseFile();
+      }
+      // Ctrl+F busca e Ctrl+G ir para (seção 7.2), no lugar dos atalhos do navegador.
+      // Abaixo de 1100 px o painel direito é uma gaveta: abre antes de pôr o foco.
+      if (ctrl && !dialogOpen && appStore.get().doc) {
+        const key = event.key.toLowerCase();
+        const target =
+          key === 'f' ? FOCUS_SEARCH_EVENT : key === 'g' ? FOCUS_GOTO_EVENT : undefined;
+        if (target) {
+          event.preventDefault();
+          setDrawer((current) => (window.innerWidth < 1100 ? 'right' : current));
+          requestAnimationFrame(() => window.dispatchEvent(new Event(target)));
+        }
       }
     };
     window.addEventListener('keydown', onKeyDown);

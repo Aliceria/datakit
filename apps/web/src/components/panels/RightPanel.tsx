@@ -1,9 +1,12 @@
 import { PanelSection } from '../common/PanelSection.tsx';
+import { FiltersSort } from './FiltersSort.tsx';
+import { GoTo } from './GoTo.tsx';
+import { SearchReplace } from './SearchReplace.tsx';
 import './Panel.css';
 
 type Props = { open: boolean };
 
-// Conteúdo das seções: Etapas 5 a 7.
+// A seção "Tratamento de dados" entra com as ferramentas (Etapa 7).
 export function RightPanel({ open }: Props) {
   return (
     <aside
@@ -12,16 +15,13 @@ export function RightPanel({ open }: Props) {
       aria-label="Navegação, busca e tratamento"
     >
       <PanelSection title="Ir para">
-        <p className="dk-section-empty">Nenhum arquivo aberto.</p>
+        <GoTo />
       </PanelSection>
       <PanelSection title="Pesquisar e substituir">
-        <p className="dk-section-empty">Nenhum arquivo aberto.</p>
+        <SearchReplace />
       </PanelSection>
       <PanelSection title="Filtros e ordenação">
-        <p className="dk-section-empty">Nenhum filtro ativo.</p>
-      </PanelSection>
-      <PanelSection title="Tratamento de dados">
-        <p className="dk-section-empty">Nenhum arquivo aberto.</p>
+        <FiltersSort />
       </PanelSection>
     </aside>
   );

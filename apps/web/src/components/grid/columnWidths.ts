@@ -3,7 +3,8 @@ import type { Table } from '@datakit/core';
 // Largura inicial das colunas, pela amostra do conteúdo (fonte monoespaçada de 13 px).
 const CHAR_WIDTH = 7.8;
 const PADDING = 18;
-const BADGE = 40;
+// Indicador de tipo + seta de ordenação (+ funil, quando há filtro).
+const BADGE = 64;
 const MIN = 64;
 const MAX = 340;
 const SAMPLE_ROWS = 200;

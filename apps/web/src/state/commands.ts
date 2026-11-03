@@ -21,6 +21,7 @@ import {
 import { activeTable, appStore, showError, type Selection } from './appStore.ts';
 import { execute } from './editor.ts';
 import { clampSelection, normalized, selectedIds, setSelection } from './selection.ts';
+import { hintPlacement, visibleRows } from './view.ts';
 
 // Comandos da edição (seções 7.2 e 7.3), sobre a seleção da tabela ativa.
 
@@ -56,7 +57,7 @@ function afterStructureChange(): void {
 /** Confirma a edição de uma célula. Texto igual ao atual não gera operação. */
 export function commitCellEdit(r: number, c: number, text: string): void {
   const table = activeTable(appStore.get());
-  const rowId = table?.rowOrder[r];
+  const rowId = table ? visibleRows(appStore.get(), table)[r] : undefined;
   const column = table?.columns[c];
   if (!table || rowId === undefined || !column) return;
   const data = table.data.get(column.id);
@@ -85,12 +86,24 @@ export function insertRows(where: 'above' | 'below'): void {
   if (!ctx) return;
   const { r1, r2 } = normalized(ctx.sel, ctx.table);
   const count = ctx.sel.mode === 'rows' ? r2 - r1 + 1 : 1;
+  // Posição na vista (o que o usuário vê) e a posição correspondente na ordem dos dados.
   const index = where === 'above' ? r1 : r2 + 1;
+  const view = visibleRows(appStore.get(), ctx.table);
+  const anchorRow = where === 'above' ? view[r1] : view[r2];
+  const anchorIndex = anchorRow === undefined ? -1 : ctx.table.rowOrder.indexOf(anchorRow);
+  const dataIndex =
+    anchorIndex < 0 ? ctx.table.rowOrder.length : where === 'above' ? anchorIndex : anchorIndex + 1;
   guarded(() => {
     const doc = appStore.get().doc;
     if (!doc) return;
     const label = count === 1 ? 'Inserir linha' : `Inserir ${String(count)} linhas`;
-    if (execute(label, planInsertRows(doc.tables, ctx.table, index, count))) {
+    const effect = planInsertRows(doc.tables, ctx.table, dataIndex, count);
+    if (effect.type === 'insertRows')
+      hintPlacement(
+        effect.rows.map((r) => r.rowId),
+        index,
+      );
+    if (execute(label, effect)) {
       setSelection({
         mode: 'rows',
         anchor: { r: index, c: 0 },
@@ -203,8 +216,25 @@ export function pasteText(text: string): void {
     cols: range.c2 - range.c1 + 1,
   };
   guarded(() => {
-    const plan = planPaste(doc.tables, ctx.table, ctx.table.rowOrder, target, block);
+    const plan = planPaste(
+      doc.tables,
+      ctx.table,
+      visibleRows(appStore.get(), ctx.table),
+      target,
+      block,
+    );
     const apply = () => {
+      // Linhas criadas além da borda aparecem no fim da vista, logo abaixo do que foi colado.
+      const inserted =
+        plan.effect.type === 'batch'
+          ? plan.effect.effects.find((e) => e.type === 'insertRows')
+          : undefined;
+      if (inserted?.type === 'insertRows') {
+        hintPlacement(
+          inserted.rows.map((r) => r.rowId),
+          visibleRows(appStore.get(), ctx.table).length,
+        );
+      }
       if (execute('Colar', plan.effect)) {
         const height = Math.max(target.rows, block.rows.length);
         const width = Math.max(
