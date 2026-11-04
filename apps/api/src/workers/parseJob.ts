@@ -27,8 +27,15 @@ import {
   type ImportOptions,
   type ImportWarning,
   type PreviewTable,
+  type ExportRequest,
+  type Table,
+  rowsToExport,
+  writeCsv,
+  writeJson,
+  findNestingConflicts,
 } from '@datakit/core';
 import { xlsxReader } from '../formats/xlsx/xlsxReader.ts';
+import { writeXlsx } from '../formats/xlsx/xlsxWriter.ts';
 import { documentPayloadSchema, type DocumentPayload } from '../validation/documentPayload.ts';
 
 // Trabalho executado dentro do worker thread: parsing, montagem e compactação do snapshot.
@@ -53,13 +60,16 @@ export type ParseRequest =
   | { kind: 'import'; bytes: Uint8Array; fileName: string; options: ImportOptions }
   | { kind: 'stage'; bytes: Uint8Array; fileName: string }
   | { kind: 'restore'; bytes: Uint8Array }
-  | {
-      kind: 'compact';
-      manifestGz: Uint8Array;
-      chunks: Array<{ tableId: string; data: Uint8Array }>;
-      /** Operações (gzip) depois do snapshot, em ordem de sequência. */
-      ops: Uint8Array[];
-    };
+  | ({ kind: 'compact' } & StoredDocument)
+  | ({ kind: 'export'; request: ExportRequest } & StoredDocument);
+
+/** Documento como está no banco: snapshot (manifesto e blocos) e o log depois dele. */
+export type StoredDocument = {
+  manifestGz: Uint8Array;
+  chunks: Array<{ tableId: string; data: Uint8Array }>;
+  /** Operações (gzip) depois do snapshot, em ordem de sequência. */
+  ops: Uint8Array[];
+};
 
 export type StagedVariants = {
   withHeader: EncodedDocument;
@@ -70,6 +80,7 @@ export type StagedVariants = {
 export type ParseResponse =
   | { ok: true; kind: 'import'; document: EncodedDocument }
   | { ok: true; kind: 'stage'; staged: StagedVariants }
+  | { ok: true; kind: 'export'; bytes: Uint8Array }
   | { ok: false; error: { code: string; message: string } };
 
 const gzip = (value: unknown): Uint8Array =>
@@ -183,7 +194,7 @@ function rebuildDocument(bytes: Uint8Array): { doc: DataDocument; state: Snapsho
  * Compactação (docs/PLANO.md, 4.4): snapshot + log → snapshot novo, com o histórico de desfazer e as
  * marcas de alteração reconstruídos pelas mesmas funções que o navegador usa.
  */
-function compactDocument(request: Extract<ParseRequest, { kind: 'compact' }>): EncodedDocument {
+function loadStored(request: StoredDocument) {
   const unzipJson = (data: Uint8Array): unknown =>
     JSON.parse(zlib.gunzipSync(data).toString('utf8'));
   const manifest = unzipJson(request.manifestGz) as DocumentManifest;
@@ -208,10 +219,69 @@ function compactDocument(request: Extract<ParseRequest, { kind: 'compact' }>): E
     }
     lastSeq = op.seq;
   }
+  return { manifest, tables, state, lastSeq };
+}
+
+function compactDocument(request: StoredDocument): EncodedDocument {
+  const { manifest, tables, state, lastSeq } = loadStored(request);
   return encode(
     { source: manifest.source, tables, warnings: manifest.warnings },
     { snapshotSeq: lastSeq, history: state.history, marks: serializeMarks(state.marks) },
   );
+}
+
+/** Exportação (seção 10.3): o documento no estado atual do servidor, já com todas as operações. */
+async function exportDocument(
+  request: StoredDocument & { request: ExportRequest },
+): Promise<Uint8Array> {
+  const { tables } = loadStored(request);
+  const req = request.request;
+  const chosen = req.tableIds.map((id) => tables.find((t) => t.id === id));
+  if (chosen.some((t) => t === undefined) || chosen.length === 0) {
+    throw new ImportError('INVALID_FILE', 'A tabela pedida não existe mais.');
+  }
+  const picked = chosen as Table[];
+  const first = picked[0] as Table;
+  if (req.rowIds) {
+    // Linhas visíveis: têm de existir na tabela (uma só).
+    const present = new Set(first.rowOrder);
+    if (picked.length !== 1 || req.rowIds.some((id) => !present.has(id))) {
+      throw new ImportError('INVALID_FILE', 'As linhas pedidas não existem mais.');
+    }
+  }
+  const options = req.options;
+  const encoder = new TextEncoder();
+  switch (options.format) {
+    case 'csv':
+      return encoder.encode(
+        writeCsv(
+          first,
+          rowsToExport(first, req),
+          first.columns.map((c) => c.id),
+          options,
+        ).text,
+      );
+    case 'json': {
+      const rows = rowsToExport(first, req);
+      const colIds = first.columns.map((c) => c.id);
+      if (
+        options.shape === 'objects' &&
+        options.nested &&
+        findNestingConflicts(first, rows, colIds).length > 0
+      ) {
+        throw new ImportError(
+          'EXPORT_CONFLICT',
+          'Há linhas com valor numa coluna e numa coluna dentro dela. Desligue "reconstruir objetos aninhados".',
+        );
+      }
+      return encoder.encode(writeJson(first, rows, colIds, options).text);
+    }
+    case 'xlsx':
+      return writeXlsx(
+        picked.map((table) => ({ table, rowIds: rowsToExport(table, req) })),
+        options,
+      );
+  }
 }
 
 type ValidatedChunk = DocumentPayload['chunks'][number]['payload'];
@@ -246,6 +316,9 @@ export async function runParse(request: ParseRequest): Promise<ParseResponse> {
   try {
     if (request.kind === 'compact') {
       return { ok: true, kind: 'import', document: compactDocument(request) };
+    }
+    if (request.kind === 'export') {
+      return { ok: true, kind: 'export', bytes: await exportDocument(request) };
     }
     if (request.kind === 'restore') {
       const rebuilt = rebuildDocument(request.bytes);

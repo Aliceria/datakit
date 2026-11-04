@@ -201,3 +201,21 @@ async function handleError(current: Persisted, err: unknown): Promise<void> {
 export function retrySoon(): void {
   if (hasPending()) schedule(0);
 }
+
+/**
+ * Exportação (seção 10.3): envia tudo o que estiver pendente e devolve a última sequência que o
+ * servidor confirmou. Lança erro se não conseguir esvaziar a fila (sem conexão, por exemplo).
+ */
+export async function syncedSeq(): Promise<number> {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    while (sending) await new Promise((resolve) => setTimeout(resolve, 25));
+    if (!state) throw new Error('Fila de operações não iniciada');
+    if (state.ops.length === 0) return state.acked;
+    if (timer !== undefined) {
+      clearTimeout(timer);
+      timer = undefined;
+    }
+    await flush();
+  }
+  throw new ApiError(0, 'NETWORK', 'Não foi possível salvar as últimas alterações. Tente de novo.');
+}

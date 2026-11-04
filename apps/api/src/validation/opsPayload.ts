@@ -100,6 +100,13 @@ export const logOpSchema = z.discriminatedUnion('kind', [
   z.object({ ...opBase, kind: z.literal('edit'), label: z.string().max(200), effect }).strict(),
   z.object({ ...opBase, kind: z.literal('undo') }).strict(),
   z.object({ ...opBase, kind: z.literal('redo') }).strict(),
+  z
+    .object({
+      ...opBase,
+      kind: z.literal('exported'),
+      tableIds: z.array(tableId).min(1).max(1000),
+    })
+    .strict(),
 ]);
 
 export const opsBodySchema = z

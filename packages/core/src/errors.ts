@@ -17,4 +17,5 @@ export type ImportErrorCode =
   | 'FILE_TOO_LARGE'
   | 'INVALID_FILE'
   | 'LIMIT_EXCEEDED'
-  | 'ZIP_LIMITS';
+  | 'ZIP_LIMITS'
+  | 'EXPORT_CONFLICT';

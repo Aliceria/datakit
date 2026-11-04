@@ -97,6 +97,8 @@ export type AppState = {
   tool: ToolRequest | undefined;
   /** Células destacadas depois de uma conversão de tipo ("rowId:colId"). */
   flagged: { tableId: string; cells: Set<string> } | undefined;
+  /** Diálogo Exportar aberto (seção 10). */
+  exportOpen: boolean;
 };
 
 export const appStore = createStore<AppState>({
@@ -114,6 +116,7 @@ export const appStore = createStore<AppState>({
   views: {},
   tool: undefined,
   flagged: undefined,
+  exportOpen: false,
 });
 
 export const useApp = <S>(selector: (state: AppState) => S): S => useStore(appStore, selector);

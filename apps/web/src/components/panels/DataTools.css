@@ -65,3 +65,15 @@
 .dk-tool-summary {
   margin-top: 4px;
 }
+
+/* Diálogo Exportar */
+.dk-export-warnings {
+  margin: 8px 0 0;
+  padding: 6px 8px 6px 22px;
+  border: 1px solid var(--warning);
+  color: var(--warning);
+}
+
+.dk-export-warnings li + li {
+  margin-top: 4px;
+}

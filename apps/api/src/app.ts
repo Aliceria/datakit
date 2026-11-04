@@ -6,6 +6,7 @@ import type { Db } from './persistence/prisma.ts';
 import type { CleanupScheduler } from './services/cleanupService.ts';
 import { healthRouter } from './routes/health.ts';
 import { importRouter } from './routes/import.ts';
+import { exportRouter } from './routes/export.ts';
 import { opsRouter } from './routes/ops.ts';
 import { sessionRouter } from './routes/session.ts';
 import { generalRateLimit } from './security/rateLimit.ts';
@@ -30,6 +31,7 @@ export function createApp({ config, db, cleanup }: AppDeps): Express {
   api.use(generalRateLimit(config.limits.requestsPerMinute));
   // Operações vêm antes do parser JSON global: têm limite de tamanho próprio.
   api.use(opsRouter(db));
+  api.use(exportRouter(db));
   api.use(express.json({ limit: '64kb' }));
   api.use(healthRouter(db));
   api.use(importRouter(db, config.limits));

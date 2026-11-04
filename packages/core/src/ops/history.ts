@@ -20,7 +20,7 @@ export type HistoryEntry = {
 
 export type History = { undo: HistoryEntry[]; redo: HistoryEntry[] };
 
-/** Marcas de alteração por tabela (seção 7.1). Somem só na exportação (Etapa 8). */
+/** Marcas de alteração por tabela (seção 7.1). Somem quando a tabela é exportada inteira (L19). */
 export type TableMarks = { cells: Set<string>; rows: Set<number>; cols: Set<string> };
 
 export type Marks = {
@@ -32,7 +32,11 @@ export type Marks = {
 export type EditorState = { tables: Table[]; history: History; marks: Marks };
 
 export type LogOp = { seq: number; opId: string } & (
-  { kind: 'edit'; label: string; effect: Effect } | { kind: 'undo' } | { kind: 'redo' }
+  | { kind: 'edit'; label: string; effect: Effect }
+  | { kind: 'undo' }
+  | { kind: 'redo' }
+  /** Exportação completa dessas tabelas: limpa as marcas delas (não entra no histórico). */
+  | { kind: 'exported'; tableIds: string[] }
 );
 
 export const cellKey = (rowId: number, colId: string): string => `${String(rowId)}:${colId}`;
@@ -78,6 +82,15 @@ export class HistoryError extends Error {}
 /** Aplica uma operação do log. Lança erro se ela não puder ser aplicada (nada muda nesse caso). */
 export function applyLogOp(state: EditorState, op: LogOp): void {
   const { history } = state;
+  if (op.kind === 'exported') {
+    for (const id of op.tableIds) state.marks.tables.delete(id);
+    // O contador de alterações não exportadas zera quando nenhuma tabela tem marca.
+    const pending = [...state.marks.tables.values()].some(
+      (m) => m.cells.size + m.rows.size + m.cols.size > 0,
+    );
+    if (!pending) state.marks.changes = 0;
+    return;
+  }
   if (op.kind === 'edit') {
     const inverse = applyEffect(state.tables, op.effect);
     const size = JSON.stringify(op.effect).length + JSON.stringify(inverse).length;

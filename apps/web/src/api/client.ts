@@ -1,6 +1,7 @@
 import type {
   ChunkPayload,
   DocumentManifest,
+  ExportOptions,
   ImportOptions,
   ImportWarning,
   LogOp,
@@ -183,6 +184,24 @@ export async function postOps(ops: readonly LogOp[]): Promise<number> {
   }
   const res = await request('/api/session/ops', { method: 'POST', headers, body });
   return ((await res.json()) as { ackedSeq: number }).ackedSeq;
+}
+
+export type ExportBody = {
+  expectedSeq: number;
+  fileName: string;
+  tableIds: string[];
+  rowIds?: number[];
+  options: ExportOptions;
+};
+
+/** Gera o arquivo no servidor (seção 10.3) e devolve o conteúdo para baixar. */
+export async function exportFile(body: ExportBody): Promise<Blob> {
+  const res = await request('/api/session/export', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return res.blob();
 }
 
 export async function deleteSession(): Promise<void> {

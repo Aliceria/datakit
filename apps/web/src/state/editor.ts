@@ -86,6 +86,16 @@ export function redo(): void {
   run({ seq: nextSeq(), opId: crypto.randomUUID(), kind: 'redo' }, entry.effect);
 }
 
+/** Exportação completa (L19): as marcas de alteração dessas tabelas somem, aqui e no servidor. */
+export function markExported(tableIds: string[]): void {
+  const { doc } = appStore.get();
+  if (!doc || tableIds.length === 0) return;
+  const op: LogOp = { seq: nextSeq(), opId: crypto.randomUUID(), kind: 'exported', tableIds };
+  applyLogOp(doc, op);
+  enqueue(op);
+  bump();
+}
+
 /** Reaplica operações guardadas (fila do sessionStorage) depois de carregar do servidor. */
 export function replayPending(ops: readonly LogOp[]): number {
   const { doc } = appStore.get();

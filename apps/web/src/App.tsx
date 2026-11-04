@@ -5,6 +5,7 @@ import {
   ExpiredDialog,
   MessageDialog,
 } from './components/dialogs/MessageDialogs.tsx';
+import { ExportDialog } from './components/dialogs/ExportDialog.tsx';
 import { ToolDialog } from './components/dialogs/ToolDialog.tsx';
 import { PreviewDialog } from './components/dialogs/PreviewDialog.tsx';
 import { LeftPanel } from './components/panels/LeftPanel.tsx';
@@ -16,6 +17,7 @@ import { Toolbar } from './components/toolbar/Toolbar.tsx';
 import { Workspace } from './components/workspace/Workspace.tsx';
 import { appStore, showError } from './state/appStore.ts';
 import { redo, undo } from './state/editor.ts';
+import { openExport } from './state/exportFlow.ts';
 import { openFile } from './state/importFlow.ts';
 import './App.css';
 
@@ -47,12 +49,20 @@ export function App() {
       const target = event.target as HTMLElement;
       const inField = ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
       const ctrl = event.ctrlKey || event.metaKey;
-      const { preview, confirm, message, expired } = appStore.get();
+      const { preview, confirm, message, expired, tool, exportOpen } = appStore.get();
       const dialogOpen =
         preview !== undefined ||
         confirm !== undefined ||
         message !== undefined ||
-        expired !== undefined;
+        expired !== undefined ||
+        tool !== undefined ||
+        exportOpen;
+      // Ctrl+S exporta (seção 7.2), no lugar do "salvar página" do navegador.
+      if (ctrl && event.key.toLowerCase() === 's') {
+        event.preventDefault();
+        if (!dialogOpen) openExport();
+        return;
+      }
       if (ctrl && !inField && !dialogOpen) {
         const key = event.key.toLowerCase();
         if (key === 'z' && !event.shiftKey) {
@@ -178,6 +188,7 @@ export function App() {
       <MessageDialog />
       <ConfirmDialog />
       <ToolDialog />
+      <ExportDialog />
       <ExpiredDialog />
     </div>
   );

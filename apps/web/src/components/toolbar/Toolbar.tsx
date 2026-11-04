@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FolderOpen, PanelLeft, PanelRight, Redo2, Undo2, Wrench } from 'lucide-react';
+import { Download, FolderOpen, PanelLeft, PanelRight, Redo2, Undo2, Wrench } from 'lucide-react';
 import { PRODUCT } from '@datakit/core';
 import { activeTable, appStore, useApp } from '../../state/appStore.ts';
 import {
@@ -11,6 +11,7 @@ import {
 } from '../../state/tools.ts';
 import { ContextMenu, type MenuItem } from '../common/ContextMenu.tsx';
 import { redo, undo } from '../../state/editor.ts';
+import { openExport } from '../../state/exportFlow.ts';
 import { ToolbarButton } from './ToolbarButton.tsx';
 import './Toolbar.css';
 
@@ -20,7 +21,7 @@ type Props = {
   onOpen: () => void;
 };
 
-// Exportar e Ajuda entram junto com as funcionalidades (Etapa 8).
+// Ajuda entra no fechamento (Etapa 9).
 /** Itens do menu Ferramentas (seção 8); os mesmos da seção "Tratamento de dados". */
 function toolItems(): MenuItem[] {
   const state = appStore.get();
@@ -70,6 +71,7 @@ function toolItems(): MenuItem[] {
 export function Toolbar({ drawer, onToggleDrawer, onOpen }: Props) {
   const [menu, setMenu] = useState<{ x: number; y: number } | undefined>(undefined);
   const hasDoc = useApp((s) => s.doc !== undefined);
+  const canExport = useApp((s) => s.doc !== undefined && s.sessionStatus !== 'expired');
   // A revisão muda a cada operação: os rótulos e o estado dos botões acompanham.
   const undoLabel = useApp((s) =>
     s.revision >= 0 && s.sessionStatus !== 'expired'
@@ -92,6 +94,13 @@ export function Toolbar({ drawer, onToggleDrawer, onOpen }: Props) {
         label="Abrir"
         title="Abrir arquivo (Ctrl+O)"
         onClick={onOpen}
+      />
+      <ToolbarButton
+        icon={Download}
+        label="Exportar"
+        title="Exportar para CSV, XLSX ou JSON (Ctrl+S)"
+        disabled={!canExport}
+        onClick={openExport}
       />
       <ToolbarButton
         icon={Undo2}
