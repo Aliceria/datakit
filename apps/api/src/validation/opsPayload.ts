@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { LogOp } from '@datakit/core';
+import { EDIT_TOOLS, type LogOp } from '@datakit/core';
 
 // Operações recebidas do navegador (docs/PLANO.md, seção 7). O servidor valida a forma aqui e
 // aplica o efeito na compactação, com as mesmas funções do core. Nada de chaves inesperadas.
@@ -97,7 +97,15 @@ const opBase = {
 };
 
 export const logOpSchema = z.discriminatedUnion('kind', [
-  z.object({ ...opBase, kind: z.literal('edit'), label: z.string().max(200), effect }).strict(),
+  z
+    .object({
+      ...opBase,
+      kind: z.literal('edit'),
+      label: z.string().max(200),
+      effect,
+      tool: z.enum(EDIT_TOOLS).optional(),
+    })
+    .strict(),
   z.object({ ...opBase, kind: z.literal('undo') }).strict(),
   z.object({ ...opBase, kind: z.literal('redo') }).strict(),
   z

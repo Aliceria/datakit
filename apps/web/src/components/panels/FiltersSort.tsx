@@ -37,7 +37,8 @@ export function FiltersSort() {
   const applyOrder = () => {
     const order = sortedDataOrder(table.id);
     if (!order) return;
-    if (execute('Aplicar ordem aos dados', planApplyOrder(table, order))) clearSort(table.id);
+    if (execute('applyOrder', 'Aplicar ordem aos dados', planApplyOrder(table, order)))
+      clearSort(table.id);
   };
 
   return (

@@ -67,6 +67,12 @@ npm run db:migrate -w @datakit/api        # aplica migrations (deploy)
 npm run db:migrate:dev -w @datakit/api    # cria uma migration nova a partir do schema
 ```
 
+## Métricas de uso
+
+A API registra metadados de uso para o painel `/metrics`: acessos ao editor (um por origem a cada 10 minutos), importações, edições (pela ferramenta usada), desfazer, refazer e exportações, com formato e resultado. Não registra conteúdo, nome de arquivo, nome de coluna nem linhas. O IP fica só como HMAC e mascarado, e os dois são apagados depois de `METRICS_RETENTION_DAYS` dias (no máximo 30). O que fica depois disso são os totais por dia.
+
+O registro só liga com `METRICS_HMAC_KEY` no `.env`, e só em produção um acesso conta como externo. O IP real vem do `TRUST_PROXY`. O código fica em `apps/api/src/metrics/`.
+
 ## Integração contínua
 
 O GitHub Actions (`.github/workflows/ci.yml`) roda a cada envio para `main` e em pull requests: `npm run check` e os testes de ponta a ponta em Chromium, Firefox e WebKit.

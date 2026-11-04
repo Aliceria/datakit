@@ -10,7 +10,7 @@ const db = createPrisma(config.databaseUrl);
 const pragmas = await applyPragmas(db);
 log.info('banco pronto', { journalMode: pragmas.journalMode, autoVacuum: pragmas.autoVacuum });
 
-const cleanup = startCleanup(db);
+const cleanup = startCleanup(db, config.metrics.retentionDays);
 const app = createApp({ config, db, cleanup });
 const server = app.listen(config.port, config.host, () => {
   log.info('DataKit API ouvindo', { host: config.host, port: config.port });

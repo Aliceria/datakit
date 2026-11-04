@@ -7,6 +7,11 @@ import { API_ROOT, DEFAULT_LIMITS, type BusinessLimits } from '../config/env.ts'
 import { applyPragmas } from '../persistence/pragmas.ts';
 import { createPrisma, type Db } from '../persistence/prisma.ts';
 import { startCleanup, type CleanupScheduler } from '../services/cleanupService.ts';
+import {
+  createMetricsRecorder,
+  type MetricsConfig,
+  type MetricsRecorder,
+} from '../metrics/recorder.ts';
 import { createTestDatabase } from './testDb.ts';
 
 export const FIXTURES = path.resolve(API_ROOT, '../../fixtures');
@@ -21,6 +26,7 @@ export type TestServer = {
   /** Arquivo do banco, para conferir que os dados apagados sumiram do disco. */
   dbFile: string;
   cleanup: CleanupScheduler | undefined;
+  metrics: MetricsRecorder;
   close: () => Promise<void>;
 };
 
@@ -28,6 +34,10 @@ export type TestServerOptions = {
   limits?: Partial<BusinessLimits>;
   /** Liga o agendador de limpeza física (como em produção). */
   withCleanup?: boolean;
+  /** Proxies confiáveis (TRUST_PROXY). */
+  trustProxy?: number;
+  /** Liga as métricas de uso (com chave de teste), como em produção. */
+  metrics?: Partial<MetricsConfig>;
 };
 
 /** Servidor real numa porta efêmera, com banco temporário só dele. */
@@ -36,14 +46,23 @@ export async function startTestServer(options: TestServerOptions = {}): Promise<
   const db = createPrisma(testDb.url);
   await applyPragmas(db);
   const cleanup = options.withCleanup ? startCleanup(db) : undefined;
+  const metricsConfig: MetricsConfig = {
+    hmacKey: undefined,
+    retentionDays: 30,
+    countExternal: false,
+    ...options.metrics,
+  };
+  const metrics = createMetricsRecorder(db, metricsConfig);
   const app = createApp({
     config: {
       isProduction: false,
-      trustProxy: 0,
+      trustProxy: options.trustProxy ?? 0,
       webDistDir: path.join(testDb.dir, 'sem-web'),
       limits: { ...DEFAULT_LIMITS, ...options.limits },
+      metrics: metricsConfig,
     },
     db,
+    metrics,
     ...(cleanup ? { cleanup } : {}),
   });
   const server: Server = app.listen(0, '127.0.0.1');
@@ -53,8 +72,10 @@ export async function startTestServer(options: TestServerOptions = {}): Promise<
     db,
     dbFile: testDb.url.slice('file:'.length),
     cleanup,
+    metrics,
     close: async () => {
       cleanup?.stop();
+      await metrics.flush();
       await new Promise<void>((resolve) =>
         server.close(() => {
           resolve();

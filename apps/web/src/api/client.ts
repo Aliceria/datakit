@@ -269,3 +269,11 @@ export function sendRelease(pending: readonly LogOp[] = []): void {
     keepalive: true,
   }).catch(() => undefined);
 }
+
+/**
+ * Avisa o servidor de que o editor foi aberto (métricas de uso, sem nenhum dado do arquivo).
+ * Uma falha aqui nunca atrapalha o editor.
+ */
+export function reportVisit(): void {
+  fetch('/api/metrics/visit', { method: 'POST', keepalive: true }).catch(() => undefined);
+}

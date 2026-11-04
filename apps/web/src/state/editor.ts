@@ -5,6 +5,7 @@ import {
   forEachTouched,
   inferColumn,
   type ColumnInference,
+  type EditTool,
   type Effect,
   type LogOp,
 } from '@datakit/core';
@@ -68,8 +69,11 @@ function run(op: LogOp, effect: Effect): boolean {
 }
 
 /** Executa uma edição (uma entrada no histórico, mesmo que seja em massa). */
-export function execute(label: string, effect: Effect): boolean {
-  return run({ seq: nextSeq(), opId: crypto.randomUUID(), kind: 'edit', label, effect }, effect);
+export function execute(tool: EditTool, label: string, effect: Effect): boolean {
+  return run(
+    { seq: nextSeq(), opId: crypto.randomUUID(), kind: 'edit', label, effect, tool },
+    effect,
+  );
 }
 
 export function undo(): void {

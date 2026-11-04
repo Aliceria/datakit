@@ -26,7 +26,13 @@ beforeAll(async () => {
   db = createPrisma(testDb.url);
   await applyPragmas(db);
   const app = createApp({
-    config: { isProduction: false, trustProxy: 0, webDistDir, limits: DEFAULT_LIMITS },
+    config: {
+      isProduction: false,
+      trustProxy: 0,
+      webDistDir,
+      limits: DEFAULT_LIMITS,
+      metrics: { hmacKey: undefined, retentionDays: 30, countExternal: false },
+    },
     db,
   });
   server = app.listen(0, '127.0.0.1');

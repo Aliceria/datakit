@@ -10,6 +10,7 @@ import {
   type SourceInfo,
 } from '@datakit/core';
 import type { BusinessLimits } from '../config/env.ts';
+import { formatOf, type MetricsRecorder } from '../metrics/recorder.ts';
 import type { Db } from '../persistence/prisma.ts';
 import {
   assertCanCreateSession,
@@ -95,6 +96,29 @@ function asApiError(err: ImportError | { code: string; message: string }): ApiEr
   return new ApiError(status, err.code, err.message);
 }
 
+/** Código do erro para as métricas (nunca a mensagem). */
+function errorCode(err: unknown): string {
+  if (err instanceof ApiError) return err.code;
+  if (err instanceof ImportError) return err.code;
+  const status =
+    typeof err === 'object' && err !== null && 'status' in err ? err.status : undefined;
+  return status === 413 ? 'FILE_TOO_LARGE' : 'INTERNAL';
+}
+
+/** Formato declarado no nome do arquivo, sem guardar o nome. */
+function declaredFormat(req: Request): string {
+  try {
+    return formatOf(decodeURIComponent(req.header('x-file-name') ?? ''));
+  } catch {
+    return 'outro';
+  }
+}
+
+function declaredSize(req: Request): number {
+  const n = Number(req.header('content-length') ?? '0');
+  return Number.isSafeInteger(n) && n > 0 ? n : 0;
+}
+
 /** Passos 1 e 2 da validação (seção 6.1): extensão e tamanho, antes de ler o corpo. */
 function validateNameAndSize(req: Request): string {
   const fileName = readFileName(req);
@@ -136,6 +160,7 @@ function sourceMeta(fileName: string, summary: EncodedDocument['summary']): stri
 async function finishImport(
   db: Db,
   limits: BusinessLimits,
+  metrics: MetricsRecorder,
   req: Request,
   res: Response,
   fileName: string,
@@ -151,6 +176,11 @@ async function finishImport(
     document,
     sourceMeta: sourceMeta(fileName, document.summary),
   });
+  metrics.importSucceeded(req, {
+    sessionHash: saved.sessionId,
+    format: formatOf(fileName),
+    sizeBytes: document.summary.sizeBytes,
+  });
   log.info('importação concluída', {
     session: logId(saved.sessionId),
     format: fileExtension(fileName),
@@ -165,7 +195,7 @@ async function finishImport(
   });
 }
 
-export function importRouter(db: Db, limits: BusinessLimits): Router {
+export function importRouter(db: Db, limits: BusinessLimits, metrics: MetricsRecorder): Router {
   const router = Router();
 
   // CSV e JSON (e XLSX direto, sem pré-visualização): corpo binário.
@@ -179,7 +209,7 @@ export function importRouter(db: Db, limits: BusinessLimits): Router {
         const document = parsed.data.options.hasHeader
           ? entry.variants.withHeader
           : entry.variants.withoutHeader;
-        await finishImport(db, limits, req, res, entry.fileName, document);
+        await finishImport(db, limits, metrics, req, res, entry.fileName, document);
         return;
       }
 
@@ -198,8 +228,13 @@ export function importRouter(db: Db, limits: BusinessLimits): Router {
       const result = await parseInWorker({ kind: 'import', bytes, fileName, options });
       if (!result.ok) throw asApiError(result.error);
       if (result.kind !== 'import') throw new Error('Resposta inesperada do worker');
-      await finishImport(db, limits, req, res, fileName, result.document);
+      await finishImport(db, limits, metrics, req, res, fileName, result.document);
     } catch (err) {
+      metrics.importFailed(req, {
+        format: req.is('application/json') ? 'xlsx' : declaredFormat(req),
+        sizeBytes: declaredSize(req),
+        code: errorCode(err),
+      });
       next(err);
     }
   });
@@ -235,6 +270,11 @@ export function importRouter(db: Db, limits: BusinessLimits): Router {
         },
       });
     } catch (err) {
+      metrics.importFailed(req, {
+        format: declaredFormat(req),
+        sizeBytes: declaredSize(req),
+        code: errorCode(err),
+      });
       next(err);
     }
   });
@@ -268,6 +308,10 @@ export function importRouter(db: Db, limits: BusinessLimits): Router {
         sourceMeta: sourceMeta(result.document.summary.fileName, result.document.summary),
       });
       log.info('sessão restaurada a partir da aba', { session: logId(saved.sessionId) });
+      metrics.sessionRestored(req, {
+        sessionHash: saved.sessionId,
+        format: formatOf(result.document.summary.fileName),
+      });
       res.status(201).json({
         sessionId: saved.token,
         version: saved.version,

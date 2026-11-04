@@ -63,20 +63,20 @@ export function commitCellEdit(r: number, c: number, text: string): void {
   const data = table.data.get(column.id);
   const current = data ? readValue(data, rowId) : undefined;
   if (current?.s === STATE_VALUE && current.r === text) return;
-  execute('Editar célula', planSetText(table, [{ rowId, colId: column.id }], text));
+  execute('editCell', 'Editar célula', planSetText(table, [{ rowId, colId: column.id }], text));
 }
 
 /** Delete: deixa as células selecionadas com texto vazio (seção 7.2). */
 export function clearSelection(): void {
   const ctx = context();
   if (!ctx) return;
-  execute('Limpar células', planClear(ctx.table, selectedRefs(ctx.table, ctx.sel)));
+  execute('clearCells', 'Limpar células', planClear(ctx.table, selectedRefs(ctx.table, ctx.sel)));
 }
 
 export function setSelectionNull(): void {
   const ctx = context();
   if (!ctx) return;
-  execute('Definir como nulo', planSetNull(ctx.table, selectedRefs(ctx.table, ctx.sel)));
+  execute('setNull', 'Definir como nulo', planSetNull(ctx.table, selectedRefs(ctx.table, ctx.sel)));
 }
 
 // --- Linhas e colunas --------------------------------------------------------------------------
@@ -103,7 +103,7 @@ export function insertRows(where: 'above' | 'below'): void {
         effect.rows.map((r) => r.rowId),
         index,
       );
-    if (execute(label, effect)) {
+    if (execute('insertRows', label, effect)) {
       setSelection({
         mode: 'rows',
         anchor: { r: index, c: 0 },
@@ -118,7 +118,7 @@ export function deleteRows(): void {
   if (!ctx) return;
   const { rowIds } = selectedIds(ctx.sel, ctx.table);
   const label = rowIds.length === 1 ? 'Excluir linha' : `Excluir ${String(rowIds.length)} linhas`;
-  if (execute(label, planDeleteRows(ctx.table, rowIds))) afterStructureChange();
+  if (execute('deleteRows', label, planDeleteRows(ctx.table, rowIds))) afterStructureChange();
 }
 
 export function insertColumns(where: 'left' | 'right'): void {
@@ -131,7 +131,7 @@ export function insertColumns(where: 'left' | 'right'): void {
     const doc = appStore.get().doc;
     if (!doc) return;
     const label = count === 1 ? 'Inserir coluna' : `Inserir ${String(count)} colunas`;
-    if (execute(label, planInsertColumns(doc.tables, ctx.table, index, count))) {
+    if (execute('insertColumns', label, planInsertColumns(doc.tables, ctx.table, index, count))) {
       setSelection({
         mode: 'columns',
         anchor: { r: 0, c: index },
@@ -150,7 +150,7 @@ export function deleteColumns(): void {
     return;
   }
   const label = colIds.length === 1 ? 'Excluir coluna' : `Excluir ${String(colIds.length)} colunas`;
-  if (execute(label, planDeleteColumns(ctx.table, colIds))) afterStructureChange();
+  if (execute('deleteColumns', label, planDeleteColumns(ctx.table, colIds))) afterStructureChange();
 }
 
 export function renameColumn(c: number, newName: string): boolean {
@@ -163,7 +163,7 @@ export function renameColumn(c: number, newName: string): boolean {
   }
   const leaf = column.path ? column.path.at(-1) : column.name;
   if (leaf === newName) return true;
-  return execute('Renomear coluna', planRenameColumn(table, column.id, newName));
+  return execute('renameColumn', 'Renomear coluna', planRenameColumn(table, column.id, newName));
 }
 
 // --- Área de transferência ---------------------------------------------------------------------
@@ -191,7 +191,7 @@ export function cutSelection(): string | undefined {
   const text = copySelection();
   const ctx = context();
   if (text !== undefined && ctx)
-    execute('Recortar', planClear(ctx.table, selectedRefs(ctx.table, ctx.sel)));
+    execute('cut', 'Recortar', planClear(ctx.table, selectedRefs(ctx.table, ctx.sel)));
   return text;
 }
 
@@ -235,7 +235,7 @@ export function pasteText(text: string): void {
           visibleRows(appStore.get(), ctx.table).length,
         );
       }
-      if (execute('Colar', plan.effect)) {
+      if (execute('paste', 'Colar', plan.effect)) {
         const height = Math.max(target.rows, block.rows.length);
         const width = Math.max(
           target.cols,
@@ -290,7 +290,7 @@ export async function copyFromMenu(cut = false): Promise<void> {
   try {
     await navigator.clipboard.writeText(text);
     const ctx = cut ? context() : undefined;
-    if (ctx) execute('Recortar', planClear(ctx.table, selectedRefs(ctx.table, ctx.sel)));
+    if (ctx) execute('cut', 'Recortar', planClear(ctx.table, selectedRefs(ctx.table, ctx.sel)));
   } catch {
     showError(
       'Copiar pelo menu não foi permitido',

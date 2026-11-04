@@ -115,7 +115,7 @@ export function replaceCurrent(scope: SearchScope, replacement: string): boolean
   const raw = data.raw[rowId] ?? '';
   const next = replaceInText(raw, scope.options, replacement);
   if (next !== raw)
-    execute('Substituir', planSetTexts(table, [{ rowId, colId: column.id, raw: next }]));
+    execute('replace', 'Substituir', planSetTexts(table, [{ rowId, colId: column.id, raw: next }]));
   const after = findNext(scope, 1);
   if (after) goToHit(after);
   return true;
@@ -147,7 +147,7 @@ export function planReplaceAll(
   return {
     cells: items.length,
     run: () => {
-      if (items.length > 0) execute('Substituir todas', planSetTexts(table, items));
+      if (items.length > 0) execute('replaceAll', 'Substituir todas', planSetTexts(table, items));
     },
   };
 }

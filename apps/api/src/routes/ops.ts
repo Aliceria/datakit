@@ -1,10 +1,12 @@
 import express, { Router } from 'express';
 import { z } from 'zod';
+import type { MetricsRecorder } from '../metrics/recorder.ts';
 import type { Db } from '../persistence/prisma.ts';
 import { scheduleCompaction } from '../services/compactionService.ts';
 import { appendOps, readOpsAfter } from '../services/opService.ts';
 import {
   assertActiveInstance,
+  findActiveSession,
   isValidInstanceId,
   requireSession,
 } from '../services/sessionService.ts';
@@ -17,18 +19,21 @@ const opsJson = express.json({ limit: '64mb', inflate: true });
 
 const afterQuery = z.object({ after: z.coerce.number().int().min(0) });
 
-export function opsRouter(db: Db): Router {
+export function opsRouter(db: Db, metrics: MetricsRecorder): Router {
   const router = Router();
 
   router.post('/session/ops', opsJson, async (req, res, next) => {
     try {
       const parsed = opsBodySchema.safeParse(req.body);
       if (!parsed.success || !isValidInstanceId(parsed.data.instanceId)) {
+        const session = metrics.enabled ? await findActiveSession(db, req) : undefined;
+        if (session) metrics.opsRejected(req, session.id);
         throw new ApiError(422, 'INVALID_OP', 'Operação inválida.');
       }
       const session = await requireSession(db, req);
       await assertActiveInstance(db, session, parsed.data.instanceId);
       const result = await appendOps(db, session.id, parsed.data.ops.map(asLogOp));
+      metrics.opsAppended(req, session.id, result.addedOps);
       scheduleCompaction(db, session.id, result.ackedSeq, session.snapshotSeq);
       res.json({ ackedSeq: result.ackedSeq });
     } catch (err) {

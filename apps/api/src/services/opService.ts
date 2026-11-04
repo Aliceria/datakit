@@ -12,7 +12,12 @@ import { ApiError } from '../utils/httpErrors.ts';
 const gzip = (value: unknown): Uint8Array<ArrayBuffer> =>
   new Uint8Array(zlib.gzipSync(JSON.stringify(value), { level: zlib.constants.Z_BEST_SPEED }));
 
-export type AppendResult = { ackedSeq: number; added: number };
+export type AppendResult = {
+  ackedSeq: number;
+  added: number;
+  /** Operações gravadas agora (sem as repetições), para as métricas de uso. */
+  addedOps: LogOp[];
+};
 
 export async function appendOps(
   db: Db,
@@ -27,6 +32,7 @@ export async function appendOps(
     });
     let head = session.headSeq;
     let added = 0;
+    const addedOps: LogOp[] = [];
     for (const op of sorted) {
       if (op.seq <= head) {
         const existing = await tx.opLog.findUnique({
@@ -53,6 +59,7 @@ export async function appendOps(
       await tx.opLog.create({ data: { sessionId, seq: op.seq, opId: op.opId, payload: gzip(op) } });
       head = op.seq;
       added += 1;
+      addedOps.push(op);
     }
     if (added > 0) {
       await tx.session.update({
@@ -60,7 +67,7 @@ export async function appendOps(
         data: { headSeq: head, lastSeenAt: new Date() },
       });
     }
-    return { ackedSeq: head, added };
+    return { ackedSeq: head, added, addedOps };
   });
 }
 

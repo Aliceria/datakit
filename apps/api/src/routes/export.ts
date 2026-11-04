@@ -1,6 +1,7 @@
 import express, { Router } from 'express';
 import { z } from 'zod';
 import type { ExportRequest } from '@datakit/core';
+import type { MetricsRecorder } from '../metrics/recorder.ts';
 import type { Db } from '../persistence/prisma.ts';
 import { logId, requireSession } from '../services/sessionService.ts';
 import { ApiError } from '../utils/httpErrors.ts';
@@ -77,7 +78,7 @@ export function contentDisposition(fileName: string): string {
   return `attachment; filename="${ascii}"; filename*=UTF-8''${encoded}`;
 }
 
-export function exportRouter(db: Db): Router {
+export function exportRouter(db: Db, metrics: MetricsRecorder): Router {
   const router = Router();
 
   router.post('/session/export', exportJson, async (req, res, next) => {
@@ -123,6 +124,12 @@ export function exportRouter(db: Db): Router {
         ops: ops.map((o) => o.payload),
       });
       if (!result.ok) {
+        metrics.exported(req, {
+          sessionHash: session.id,
+          targetFormat: body.options.format,
+          ok: false,
+          code: result.error.code,
+        });
         const status = result.error.code === 'EXPORT_CONFLICT' ? 422 : 500;
         if (status === 500) {
           log.error('exportação falhou', {
@@ -133,6 +140,11 @@ export function exportRouter(db: Db): Router {
         throw new ApiError(status, result.error.code, result.error.message);
       }
       if (result.kind !== 'export') throw new ApiError(500, 'INTERNAL', 'Resposta inesperada.');
+      metrics.exported(req, {
+        sessionHash: session.id,
+        targetFormat: body.options.format,
+        ok: true,
+      });
       res.set({
         'Content-Type': MIME[body.options.format],
         'Content-Disposition': contentDisposition(body.fileName),

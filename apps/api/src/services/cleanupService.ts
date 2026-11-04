@@ -1,4 +1,5 @@
 import { SESSION_TIMING } from '@datakit/core';
+import { purgeMetrics } from '../metrics/retention.ts';
 import type { Db } from '../persistence/prisma.ts';
 import { log } from '../utils/log.ts';
 
@@ -49,16 +50,30 @@ export type CleanupScheduler = {
   stop(): void;
 };
 
-/** Roda ao iniciar, a cada 5 minutos e no vencimento de cada exclusão agendada. */
-export function startCleanup(db: Db): CleanupScheduler {
+/**
+ * Roda ao iniciar, a cada 5 minutos e no vencimento de cada exclusão agendada. Junto, aplica a
+ * retenção das métricas de uso (padrão de 30 dias).
+ */
+export function startCleanup(db: Db, metricsRetentionDays = 30): CleanupScheduler {
   let running: Promise<number> | undefined;
   const timers = new Set<NodeJS.Timeout>();
 
   const runNow = async (): Promise<number> => {
     // Uma limpeza por vez; quem chega durante uma em andamento espera a mesma.
-    running ??= purgeExpiredSessions(db).finally(() => {
-      running = undefined;
-    });
+    running ??= purgeExpiredSessions(db)
+      .then(async (count) => {
+        try {
+          await purgeMetrics(db, metricsRetentionDays);
+        } catch (err) {
+          log.error('falha na retenção das métricas', {
+            error: err instanceof Error ? err.name : 'erro',
+          });
+        }
+        return count;
+      })
+      .finally(() => {
+        running = undefined;
+      });
     try {
       return await running;
     } catch (err) {

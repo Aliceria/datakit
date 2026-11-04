@@ -218,7 +218,7 @@ function batch(effects: Effect[]): Effect {
 
 export function runTool(req: ToolRequest, preview: ToolPreview): void {
   if (preview.count === 0) return;
-  if (!execute(TOOL_TITLES[req.kind], preview.effect)) return;
+  if (!execute(req.kind, TOOL_TITLES[req.kind], preview.effect)) return;
   const failed = preview.failed ?? [];
   const failedCount = failed.reduce((n, f) => n + f.rowIds.length, 0);
   appStore.set({

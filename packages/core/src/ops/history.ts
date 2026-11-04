@@ -31,8 +31,40 @@ export type Marks = {
 
 export type EditorState = { tables: Table[]; history: History; marks: Marks };
 
+/**
+ * Ferramenta que gerou uma edição. Lista fechada, validada no servidor; serve só para as métricas
+ * de uso (quais funcionalidades as pessoas usam). Operações antigas não têm o campo.
+ */
+export const EDIT_TOOLS = [
+  'editCell',
+  'clearCells',
+  'setNull',
+  'cut',
+  'paste',
+  'insertRows',
+  'deleteRows',
+  'insertColumns',
+  'deleteColumns',
+  'renameColumn',
+  'applyOrder',
+  'replace',
+  'replaceAll',
+  'duplicates',
+  'emptyRows',
+  'convert',
+  'trim',
+  'upper',
+  'lower',
+  'title',
+  'fill',
+  'replaceValue',
+  'clear',
+] as const;
+
+export type EditTool = (typeof EDIT_TOOLS)[number];
+
 export type LogOp = { seq: number; opId: string } & (
-  | { kind: 'edit'; label: string; effect: Effect }
+  | { kind: 'edit'; label: string; effect: Effect; tool?: EditTool }
   | { kind: 'undo' }
   | { kind: 'redo' }
   /** Exportação completa dessas tabelas: limpa as marcas delas (não entra no histórico). */

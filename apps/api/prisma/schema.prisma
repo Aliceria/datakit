@@ -90,3 +90,115 @@ model ImportEvent {
 
   @@index([ipHash, at])
 }
+
+// --- Métricas de uso (docs/PROMPT-METRICAS.md) -----------------------------------------------
+// Só metadados: nada de conteúdo, nome de arquivo, nome de coluna ou linhas. O IP nunca é gravado
+// inteiro: só o HMAC (com chave do .env) e a versão mascarada, apagados depois da retenção.
+// `classification`: "external" (comunidade), "admin" (navegador logado no painel) ou "dev" (fora
+// de produção).
+
+/// Acesso ao editor (abertura da página), já deduplicado em 10 minutos por origem
+model MetricsVisit {
+  id             Int      @id @default(autoincrement())
+  at             DateTime @default(now())
+  originHmac     String?
+  maskedIp       String?
+  classification String
+
+  @@index([at])
+  @@index([originHmac])
+}
+
+/// Último acesso contado de cada origem, para a deduplicação atômica (epoch em ms)
+model MetricsOriginLast {
+  originHmac    String @id
+  lastCountedAt BigInt
+}
+
+/// Liga a sessão anônima ao arquivo aberto nela e à classificação; dura pouco (a sessão vive 24 h)
+model MetricsSession {
+  sessionHash    String   @id
+  classification String
+  importId       Int?
+  sourceFormat   String
+  createdAt      DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+/// Importação (sucesso ou falha)
+model MetricsImport {
+  id             Int      @id @default(autoincrement())
+  at             DateTime @default(now())
+  sessionHash    String?
+  originHmac     String?
+  maskedIp       String?
+  classification String
+  format         String
+  sizeBytes      Int
+  ok             Boolean
+  errorCode      String?
+
+  @@index([at])
+  @@index([originHmac])
+  @@index([format])
+}
+
+/// Edição, desfazer ou refazer aceitos (ou um lote recusado por ser inválido)
+model MetricsEdit {
+  id             Int      @id @default(autoincrement())
+  at             DateTime @default(now())
+  importId       Int?
+  sessionHash    String?
+  originHmac     String?
+  maskedIp       String?
+  classification String
+  sourceFormat   String
+  /// "edit", "undo" ou "redo"
+  kind           String
+  tool           String?
+  ok             Boolean
+
+  @@index([at])
+  @@index([originHmac])
+  @@index([tool])
+  @@index([importId])
+}
+
+/// Exportação (sucesso ou falha)
+model MetricsExport {
+  id             Int      @id @default(autoincrement())
+  at             DateTime @default(now())
+  importId       Int?
+  sessionHash    String?
+  originHmac     String?
+  maskedIp       String?
+  classification String
+  sourceFormat   String
+  targetFormat   String
+  ok             Boolean
+  errorCode      String?
+
+  @@index([at])
+  @@index([originHmac])
+  @@index([sourceFormat, targetFormat])
+  @@index([importId])
+}
+
+/// Origens distintas por dia (fuso de São Paulo), guardadas antes de os HMACs serem apagados
+model MetricsDaily {
+  /// aaaa-mm-dd
+  day             String
+  classification  String
+  distinctOrigins Int
+
+  @@id([day, classification])
+}
+
+/// Login do painel /metrics (só o hash do token do cookie)
+model MetricsAdminSession {
+  tokenHash String   @id
+  expiresAt DateTime
+
+  @@index([expiresAt])
+}

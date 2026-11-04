@@ -1,6 +1,7 @@
 import express, { Router, type Request } from 'express';
 import { z } from 'zod';
 import type { BusinessLimits } from '../config/env.ts';
+import type { MetricsRecorder } from '../metrics/recorder.ts';
 import type { Db } from '../persistence/prisma.ts';
 import { reclaimSpace, type CleanupScheduler } from '../services/cleanupService.ts';
 import { assertCanCreateSession } from '../services/importService.ts';
@@ -41,11 +42,17 @@ const releaseBody = z
   .strict();
 
 /** Operações do beacon: só da instância ativa; falhas são ignoradas (a fila do navegador reenvia). */
-async function appendReleasedOps(db: Db, body: z.infer<typeof releaseBody>): Promise<void> {
+async function appendReleasedOps(
+  db: Db,
+  body: z.infer<typeof releaseBody>,
+  req: Request,
+  metrics: MetricsRecorder,
+): Promise<void> {
   try {
     const session = await findActiveSessionById(db, hashToken(body.sid));
     if (!session || session.activeInstanceId !== body.instanceId || !body.ops) return;
-    await appendOps(db, session.id, body.ops.map(asLogOp));
+    const result = await appendOps(db, session.id, body.ops.map(asLogOp));
+    metrics.opsAppended(req, session.id, result.addedOps);
   } catch {
     // Reenviadas depois pela fila guardada no sessionStorage.
   }
@@ -79,7 +86,11 @@ function requestedVersion(req: Request, session: ActiveSession): number {
   return session.snapshotVersion;
 }
 
-export type SessionRouterDeps = { limits: BusinessLimits; cleanup: CleanupScheduler | undefined };
+export type SessionRouterDeps = {
+  limits: BusinessLimits;
+  cleanup: CleanupScheduler | undefined;
+  metrics: MetricsRecorder;
+};
 
 export function sessionRouter(db: Db, deps: SessionRouterDeps): Router {
   const router = Router();
@@ -119,7 +130,7 @@ export function sessionRouter(db: Db, deps: SessionRouterDeps): Router {
         }
         const parsed = releaseBody.safeParse(body);
         if (parsed.success) {
-          if (parsed.data.ops?.length) await appendReleasedOps(db, parsed.data);
+          if (parsed.data.ops?.length) await appendReleasedOps(db, parsed.data, req, deps.metrics);
           const deleteAt = await releaseSession(
             db,
             parsed.data.sid,
@@ -155,6 +166,7 @@ export function sessionRouter(db: Db, deps: SessionRouterDeps): Router {
       await assertCanCreateSession(db, ip, deps.limits.activeSessionsPerIp);
       const { token, id } = await forkSession(db, source.id, { ip, instanceId });
       log.info('sessão copiada', { from: logId(source.id), to: logId(id) });
+      deps.metrics.sessionCopied(source.id, id);
       res.status(201).json({ sessionId: token, ...sessionState(source) });
     } catch (err) {
       next(err);

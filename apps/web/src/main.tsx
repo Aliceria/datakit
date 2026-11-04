@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App.tsx';
+import { reportVisit } from './api/client.ts';
 import { installPageLifecycle, startSession } from './session/sessionManager.ts';
 import './styles/tokens.css';
 import './styles/base.css';
@@ -19,3 +20,4 @@ createRoot(container).render(
 // Ciclo de vida da sessão: eventos da página e, se houver token nesta aba, retomar ou copiar.
 installPageLifecycle();
 void startSession();
+reportVisit();
