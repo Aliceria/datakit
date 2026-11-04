@@ -31,7 +31,13 @@ beforeAll(async () => {
       trustProxy: 0,
       webDistDir,
       limits: DEFAULT_LIMITS,
-      metrics: { hmacKey: undefined, retentionDays: 30, countExternal: false },
+      metrics: {
+        hmacKey: undefined,
+        retentionDays: 30,
+        countExternal: false,
+        adminUser: undefined,
+        adminPassword: undefined,
+      },
     },
     db,
   });

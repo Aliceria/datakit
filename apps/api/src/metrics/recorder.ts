@@ -17,6 +17,9 @@ export type MetricsConfig = {
   retentionDays: number;
   /** Só em produção um acesso pode ser externo; fora dela tudo é "dev". */
   countExternal: boolean;
+  /** Login do painel /metrics. Sem os dois, o painel não existe. */
+  adminUser: string | undefined;
+  adminPassword: string | undefined;
 };
 
 export type Classification = 'external' | 'admin' | 'dev';

@@ -30,6 +30,13 @@ const envSchema = z.object({
     .string()
     .min(32, 'METRICS_HMAC_KEY precisa ter pelo menos 32 caracteres')
     .optional(),
+  // Usuário e senha do painel /metrics. Sem os dois, o painel não existe (404).
+  METRICS_ADMIN_USER: z.string().min(1).max(200).optional(),
+  METRICS_ADMIN_PASSWORD: z
+    .string()
+    .min(12, 'METRICS_ADMIN_PASSWORD precisa ter pelo menos 12 caracteres')
+    .max(200)
+    .optional(),
   // Dias até apagar o HMAC e o IP mascarado; no máximo 30.
   METRICS_RETENTION_DAYS: z.coerce.number().int().min(1).max(30).default(30),
   // Prazo entre fechar a aba e apagar a sessão (seção 0). Encurtado só nos testes de ponta a ponta.
@@ -93,6 +100,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       hmacKey: e.METRICS_HMAC_KEY,
       retentionDays: e.METRICS_RETENTION_DAYS,
       countExternal: e.NODE_ENV === 'production',
+      adminUser: e.METRICS_ADMIN_USER,
+      adminPassword: e.METRICS_ADMIN_PASSWORD,
     },
   };
 }

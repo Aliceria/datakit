@@ -50,6 +50,8 @@ export async function startTestServer(options: TestServerOptions = {}): Promise<
     hmacKey: undefined,
     retentionDays: 30,
     countExternal: false,
+    adminUser: undefined,
+    adminPassword: undefined,
     ...options.metrics,
   };
   const metrics = createMetricsRecorder(db, metricsConfig);

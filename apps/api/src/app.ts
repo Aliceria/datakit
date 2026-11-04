@@ -7,6 +7,7 @@ import type { CleanupScheduler } from './services/cleanupService.ts';
 import { createMetricsRecorder, type MetricsRecorder } from './metrics/recorder.ts';
 import { healthRouter } from './routes/health.ts';
 import { metricsRouter } from './routes/metrics.ts';
+import { metricsAdminRouter } from './routes/metricsAdmin.ts';
 import { importRouter } from './routes/import.ts';
 import { exportRouter } from './routes/export.ts';
 import { opsRouter } from './routes/ops.ts';
@@ -40,6 +41,7 @@ export function createApp({ config, db, cleanup, metrics: given }: AppDeps): Exp
   api.use(express.json({ limit: '64kb' }));
   api.use(healthRouter(db));
   api.use(metricsRouter(metrics));
+  api.use(metricsAdminRouter({ db, config: config.metrics, secureCookie: config.isProduction }));
   api.use(importRouter(db, config.limits, metrics));
   api.use(sessionRouter(db, { limits: config.limits, cleanup, metrics }));
   api.use(apiNotFound);

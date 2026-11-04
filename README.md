@@ -73,6 +73,8 @@ A API registra metadados de uso para o painel `/metrics`: acessos ao editor (um 
 
 O registro só liga com `METRICS_HMAC_KEY` no `.env`, e só em produção um acesso conta como externo. O IP real vem do `TRUST_PROXY`. O código fica em `apps/api/src/metrics/`.
 
+As consultas do painel ficam em `/api/metrics/admin/*` e exigem login com `METRICS_ADMIN_USER` e `METRICS_ADMIN_PASSWORD`. Sem os dois no `.env`, o painel não existe. O login fica num cookie `HttpOnly` que vale 12 horas, e são aceitas 5 tentativas erradas a cada 15 minutos.
+
 ## Integração contínua
 
 O GitHub Actions (`.github/workflows/ci.yml`) roda a cada envio para `main` e em pull requests: `npm run check` e os testes de ponta a ponta em Chromium, Firefox e WebKit.
