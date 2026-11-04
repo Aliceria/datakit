@@ -33,6 +33,7 @@ Sobe a API em http://127.0.0.1:3000 (aplica as migrations antes) e o Vite em htt
 | `npm start`         | Roda o build de produção (Express servindo API e frontend)               |
 | `npm test`          | Testes de unidade e integração (Vitest)                                  |
 | `npm run test:e2e`  | Build + testes de ponta a ponta (Playwright: Chromium, Firefox e WebKit) |
+| `npm run test:perf` | Build + testes de desempenho isolados com 100.000 linhas, com as metas da seção 13 sem folga |
 | `npm run lint`      | ESLint                                                                   |
 | `npm run typecheck` | Verificação de tipos de todos os pacotes                                 |
 | `npm run format`    | Prettier                                                                 |

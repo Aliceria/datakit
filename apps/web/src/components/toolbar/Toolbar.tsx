@@ -1,5 +1,14 @@
 import { useState } from 'react';
-import { Download, FolderOpen, PanelLeft, PanelRight, Redo2, Undo2, Wrench } from 'lucide-react';
+import {
+  CircleHelp,
+  Download,
+  FolderOpen,
+  PanelLeft,
+  PanelRight,
+  Redo2,
+  Undo2,
+  Wrench,
+} from 'lucide-react';
 import { PRODUCT } from '@datakit/core';
 import { activeTable, appStore, useApp } from '../../state/appStore.ts';
 import {
@@ -10,6 +19,7 @@ import {
   TOOL_TITLES,
 } from '../../state/tools.ts';
 import { ContextMenu, type MenuItem } from '../common/ContextMenu.tsx';
+import { HelpDialog } from '../dialogs/HelpDialog.tsx';
 import { redo, undo } from '../../state/editor.ts';
 import { openExport } from '../../state/exportFlow.ts';
 import { ToolbarButton } from './ToolbarButton.tsx';
@@ -21,7 +31,6 @@ type Props = {
   onOpen: () => void;
 };
 
-// Ajuda entra no fechamento (Etapa 9).
 /** Itens do menu Ferramentas (seção 8); os mesmos da seção "Tratamento de dados". */
 function toolItems(): MenuItem[] {
   const state = appStore.get();
@@ -70,6 +79,7 @@ function toolItems(): MenuItem[] {
 
 export function Toolbar({ drawer, onToggleDrawer, onOpen }: Props) {
   const [menu, setMenu] = useState<{ x: number; y: number } | undefined>(undefined);
+  const [help, setHelp] = useState(false);
   const hasDoc = useApp((s) => s.doc !== undefined);
   const canExport = useApp((s) => s.doc !== undefined && s.sessionStatus !== 'expired');
   // A revisão muda a cada operação: os rótulos e o estado dos botões acompanham.
@@ -137,6 +147,21 @@ export function Toolbar({ drawer, onToggleDrawer, onOpen }: Props) {
           items={toolItems()}
           onClose={() => {
             setMenu(undefined);
+          }}
+        />
+      )}
+      <ToolbarButton
+        icon={CircleHelp}
+        label="Ajuda"
+        title="Atalhos, formatos e limites"
+        onClick={() => {
+          setHelp(true);
+        }}
+      />
+      {help && (
+        <HelpDialog
+          onClose={() => {
+            setHelp(false);
           }}
         />
       )}

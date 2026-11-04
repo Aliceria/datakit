@@ -6,14 +6,20 @@ const HOUR_MS = 3_600_000;
 type Props = { onOpen: () => void };
 
 /** Tela inicial sem arquivo: convite para abrir, formatos, limites e aviso temporário (seções 11.3 e 12). */
+/** Formatos e limites aceitos (também na Ajuda). */
+export const LIMIT_ROWS: Array<[string, string]> = [
+  ['Formatos', 'CSV, XLSX, JSON'],
+  ['Tamanho máximo', formatBytes(LIMITS.maxFileBytes)],
+  ['Linhas por tabela', formatInteger(LIMITS.maxRowsPerTable)],
+  ['Colunas por tabela', formatInteger(LIMITS.maxColumnsPerTable)],
+  ['Células por arquivo', formatInteger(LIMITS.maxCellsPerFile)],
+];
+
+/** Aviso de armazenamento temporário (seção 12): na tela inicial e na Ajuda. */
+export const STORAGE_NOTICE = `Os arquivos ficam no servidor só temporariamente. Eles são apagados quando você fecha a aba ou quando a sessão expira (${String(SESSION_TIMING.inactivityMs / HOUR_MS)} h sem uso ou ${String(SESSION_TIMING.maxDurationMs / HOUR_MS)} h no total).`;
+
 export function EmptyState({ onOpen }: Props) {
-  const limits: Array<[string, string]> = [
-    ['Formatos', 'CSV, XLSX, JSON'],
-    ['Tamanho máximo', formatBytes(LIMITS.maxFileBytes)],
-    ['Linhas por tabela', formatInteger(LIMITS.maxRowsPerTable)],
-    ['Colunas por tabela', formatInteger(LIMITS.maxColumnsPerTable)],
-    ['Células por arquivo', formatInteger(LIMITS.maxCellsPerFile)],
-  ];
+  const limits = LIMIT_ROWS;
 
   return (
     <div className="dk-empty">
@@ -32,11 +38,7 @@ export function EmptyState({ onOpen }: Props) {
             </div>
           ))}
         </dl>
-        <p className="dk-empty-notice">
-          Os arquivos ficam no servidor só temporariamente. Eles são apagados quando você fecha a
-          aba ou quando a sessão expira ({SESSION_TIMING.inactivityMs / HOUR_MS} h sem uso ou{' '}
-          {SESSION_TIMING.maxDurationMs / HOUR_MS} h no total).
-        </p>
+        <p className="dk-empty-notice">{STORAGE_NOTICE}</p>
       </div>
     </div>
   );

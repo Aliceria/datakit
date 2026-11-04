@@ -22,6 +22,8 @@ const envSchema = z.object({
   LIMIT_ACTIVE_SESSIONS_PER_IP: z.coerce.number().int().min(1).default(LIMITS.activeSessionsPerIp),
   // Limite genérico de requisições por IP por minuto, contra enxurrada (seção 12).
   LIMIT_REQUESTS_PER_MINUTE: z.coerce.number().int().min(10).default(600),
+  // Espaço máximo do banco; acima dele, novos uploads são recusados (seção 12).
+  LIMIT_DATABASE_BYTES: z.coerce.number().int().min(1).default(LIMITS.maxDatabaseBytes),
   // Prazo entre fechar a aba e apagar a sessão (seção 0). Encurtado só nos testes de ponta a ponta.
   SESSION_DELETE_AFTER_CLOSE_MS: z.coerce
     .number()
@@ -46,6 +48,7 @@ export type BusinessLimits = {
   activeSessionsPerIp: number;
   deleteAfterCloseMs: number;
   requestsPerMinute: number;
+  maxDatabaseBytes: number;
 };
 
 export const DEFAULT_LIMITS: BusinessLimits = {
@@ -53,6 +56,7 @@ export const DEFAULT_LIMITS: BusinessLimits = {
   activeSessionsPerIp: LIMITS.activeSessionsPerIp,
   deleteAfterCloseMs: SESSION_TIMING.deleteAfterCloseMs,
   requestsPerMinute: 600,
+  maxDatabaseBytes: LIMITS.maxDatabaseBytes,
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -74,6 +78,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       activeSessionsPerIp: e.LIMIT_ACTIVE_SESSIONS_PER_IP,
       deleteAfterCloseMs: e.SESSION_DELETE_AFTER_CLOSE_MS,
       requestsPerMinute: e.LIMIT_REQUESTS_PER_MINUTE,
+      maxDatabaseBytes: e.LIMIT_DATABASE_BYTES,
     },
   };
 }

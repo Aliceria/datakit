@@ -19,6 +19,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "npm run build && playwright test",
+    "test:perf": "npm run build && node scripts/test-perf.mjs",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json && npm run typecheck --workspaces",
     "format": "prettier --write .",

@@ -11,8 +11,11 @@
   --accent: #2b7a80;
   /* Destaque em texto e ícones pequenos: a mesma cor, mais clara, para manter o contraste (AA). */
   --accent-text: #4fb3ba;
+  /* Fundo com texto em cima (item de menu em destaque): mais escuro, para 5,4:1 com --text. */
+  --accent-strong: #226569;
   --link: #4ea1ff;
-  --danger: #e05555;
+  /* Mais claro que o valor inicial da seção 11.2 (#e05555): o texto de erro precisa de 4,5:1 (AA). */
+  --danger: #f07070;
   --warning: #d9a441;
   --success: #4caf72;
   --edited: #d9a441;

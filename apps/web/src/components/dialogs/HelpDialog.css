@@ -1,0 +1,40 @@
+.dk-help {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 699px) {
+  .dk-help {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.dk-help-list {
+  margin: 0;
+}
+
+.dk-help-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 45%) minmax(0, 1fr);
+  gap: 8px;
+  padding: 2px 0;
+}
+
+.dk-help-row dt {
+  color: var(--text-muted);
+}
+
+.dk-help-row dd {
+  margin: 0;
+}
+
+.dk-help kbd {
+  font-family: var(--font-grid);
+  font-size: 11px;
+}
+
+.dk-help-notice {
+  margin: 0 0 8px;
+  color: var(--text-muted);
+}

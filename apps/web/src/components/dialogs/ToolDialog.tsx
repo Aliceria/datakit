@@ -1,15 +1,16 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { formatInteger, type ConvertTarget } from '@datakit/core';
 import { useApp } from '../../state/appStore.ts';
 import {
   closeTool,
   COLUMN_TOOLS,
   filterActive,
-  previewTool,
+  previewToolBoth,
   runTool,
   TOOL_TITLES,
   type Scope,
   type ToolParams,
+  type ToolPreviews,
   type ToolRequest,
 } from '../../state/tools.ts';
 import { Modal } from './Modal.tsx';
@@ -62,32 +63,42 @@ function ToolForm({ req }: { req: ToolRequest }) {
 
   const needsColumns = COLUMN_TOOLS.includes(req.kind);
   const columns = (table?.columns ?? []).filter((c) => req.colIds.includes(c.id));
-  const preview = useMemo(
-    () => (revision >= 0 ? previewTool(req, params, scope) : undefined),
-    [req, params, scope, revision],
+  // A prévia é calculada fora da renderização e pode ser cancelada: com 100.000 linhas,
+  // "remover duplicadas" leva ~0,6 s e não pode travar a tela (seção 13).
+  const key = JSON.stringify([params, revision, askScope]);
+  const [computed, setComputed] = useState<{ key: string; previews: ToolPreviews } | undefined>(
+    undefined,
   );
-  const allRows = useMemo(
-    () => (askScope && revision >= 0 ? previewTool(req, params, 'all').count : undefined),
-    [askScope, req, params, revision],
-  );
-  const visibleRows = useMemo(
-    () => (askScope && revision >= 0 ? previewTool(req, params, 'visible').count : undefined),
-    [askScope, req, params, revision],
-  );
-  if (!table || !preview) return null;
+  useEffect(() => {
+    let stop = false;
+    void previewToolBoth(req, params, askScope, () => stop).then((previews) => {
+      if (previews && !stop) setComputed({ key, previews });
+    });
+    return () => {
+      stop = true;
+    };
+  }, [req, params, askScope, key]);
+  const previews = computed?.key === key ? computed.previews : undefined;
+  const preview =
+    previews && (scope === 'visible' ? (previews.visible ?? previews.all) : previews.all);
+  const allRows = previews?.all.count;
+  const visibleRows = previews?.visible?.count;
+  const unit = req.kind === 'duplicates' || req.kind === 'emptyRows' ? 'linhas' : 'células';
+  if (!table) return null;
 
-  const failed = (preview.failed ?? []).reduce((n, f) => n + f.rowIds.length, 0);
+  const failed = (preview?.failed ?? []).reduce((n, f) => n + f.rowIds.length, 0);
   const missingColumns = needsColumns && columns.length === 0;
   const missingCompare = req.kind === 'duplicates' && params.compare.length === 0;
-  const blocked = missingColumns || missingCompare || preview.count === 0;
+  const blocked = missingColumns || missingCompare || !preview || preview.count === 0;
   const run = () => {
     if (!blocked) runTool(req, preview);
   };
-  const verb = preview.unit === 'linhas' ? 'serão removidas' : 'serão alteradas';
-  const summary =
-    preview.count === 0
-      ? `Nenhuma ${preview.unit === 'linhas' ? 'linha' : 'célula'} muda.`
-      : `${formatInteger(preview.count)} ${preview.unit} ${verb}. Dá para desfazer com Ctrl+Z.`;
+  const verb = unit === 'linhas' ? 'serão removidas' : 'serão alteradas';
+  const summary = !preview
+    ? 'Calculando…'
+    : preview.count === 0
+      ? `Nenhuma ${unit === 'linhas' ? 'linha' : 'célula'} muda.`
+      : `${formatInteger(preview.count)} ${unit} ${verb}. Dá para desfazer com Ctrl+Z.`;
 
   return (
     <Modal
@@ -100,7 +111,7 @@ function ToolForm({ req }: { req: ToolRequest }) {
             Cancelar
           </button>
           <button type="button" className="dk-button is-primary" disabled={blocked} onClick={run}>
-            {preview.unit === 'linhas' ? 'Remover' : 'Aplicar'}
+            {unit === 'linhas' ? 'Remover' : 'Aplicar'}
           </button>
         </>
       }
@@ -304,7 +315,7 @@ function ToolForm({ req }: { req: ToolRequest }) {
                 setScope('all');
               }}
             />
-            {`Todas as linhas (${formatInteger(allRows ?? 0)} ${preview.unit})`}
+            {`Todas as linhas (${allRows === undefined ? '…' : formatInteger(allRows)} ${unit})`}
           </label>
           <label className="dk-checkbox">
             <input
@@ -315,7 +326,7 @@ function ToolForm({ req }: { req: ToolRequest }) {
                 setScope('visible');
               }}
             />
-            {`Só as linhas visíveis (${formatInteger(visibleRows ?? 0)} ${preview.unit})`}
+            {`Só as linhas visíveis (${visibleRows === undefined ? '…' : formatInteger(visibleRows)} ${unit})`}
           </label>
         </fieldset>
       )}

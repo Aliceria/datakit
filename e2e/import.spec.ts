@@ -188,6 +188,10 @@ test('arrastar e soltar abre o arquivo', async ({ page }) => {
   }).toPass({ timeout: 10_000 });
 });
 
+// Com PERF_STRICT=1 (npm run test:perf: só este teste, um navegador por vez), valem as metas da
+// seção 13 sem folga. Na suíte completa, tudo roda em paralelo e os limites são mais largos.
+const STRICT = process.env['PERF_STRICT'] === '1';
+
 test('desempenho: CSV de 100.000 linhas × 20 colunas abre, rola, ordena, filtra e busca', async ({
   page,
   browserName,
@@ -202,8 +206,8 @@ test('desempenho: CSV de 100.000 linhas × 20 colunas abre, rola, ordena, filtra
   });
   const elapsed = Date.now() - started;
   console.log(`[${browserName}] importação de 100k linhas: ${String(elapsed)} ms`);
-  // Meta da seção 13: ~5 s num notebook comum (com folga para CI).
-  expect(elapsed).toBeLessThan(15_000);
+  // Meta da seção 13: ~5 s num notebook comum (o tempo inclui a pré-visualização e o Enter).
+  expect(elapsed).toBeLessThan(STRICT ? 6000 : 15_000);
 
   const gridEl = grid(page);
   await gridEl.evaluate((el) => {
@@ -234,7 +238,7 @@ test('desempenho: CSV de 100.000 linhas × 20 colunas abre, rola, ordena, filtra
   console.log(`[${browserName}] edição visível em ${ms.toFixed(1)} ms`);
   // Meta: 50 ms (medido entre 15 e 33 ms nesta máquina). Com todos os testes em paralelo a
   // máquina fica disputada; a margem evita falso negativo. A medição isolada é da Etapa 9.
-  expect(ms).toBeLessThan(100);
+  expect(ms).toBeLessThan(STRICT ? 50 : 100);
 
   // Etapa 6: ordenar, filtrar e buscar na mesma tabela (uma importação de 100k por navegador).
   await gridEl.evaluate((el) => {
@@ -275,5 +279,21 @@ test('desempenho: CSV de 100.000 linhas × 20 colunas abre, rola, ordena, filtra
     },
   );
   // Meta da seção 13: ~1 s cada, num notebook comum. Com todos os testes em paralelo, folga.
-  for (const t of [sortMs, filterMs, searchMs]) expect(t).toBeLessThan(5000);
+  // Remover duplicadas (Etapa 9): a prévia é calculada em fatias, sem travar a tela.
+  await page.getByRole('button', { name: 'Limpar filtros' }).click();
+  const dupMs = await timed(
+    'prévia de remover duplicadas em 100k',
+    async () => {
+      await page.getByRole('button', { name: 'Ferramentas', exact: true }).click();
+      await page.getByRole('menuitem', { name: 'Remover duplicadas…' }).click();
+    },
+    async () => {
+      await expect(dialog(page)).toContainText('Nenhuma linha muda.', { timeout: 15_000 });
+    },
+  );
+  await dialog(page).getByRole('button', { name: 'Cancelar' }).click();
+  expect(dupMs).toBeLessThan(STRICT ? 3000 : 10_000);
+
+  // Os tempos incluem o clique e a espera do Playwright pela tela.
+  for (const t of [sortMs, filterMs, searchMs]) expect(t).toBeLessThan(STRICT ? 1500 : 5000);
 });

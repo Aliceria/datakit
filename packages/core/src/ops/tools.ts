@@ -26,10 +26,33 @@ export function findDuplicateRows(
   colIds: readonly string[],
   options: DuplicateOptions,
 ): number[] {
+  const steps = findDuplicateRowsInSlices(table, rowIds, colIds, options, Infinity);
+  for (;;) {
+    const step = steps.next();
+    if (step.done) return step.value;
+  }
+}
+
+/**
+ * O mesmo, em fatias: o gerador pausa a cada `sliceRows` linhas, para o navegador devolver o
+ * controle à interface entre uma fatia e outra (100.000 linhas × 20 colunas levam ~0,6 s).
+ */
+export function* findDuplicateRowsInSlices(
+  table: Table,
+  rowIds: readonly number[],
+  colIds: readonly string[],
+  options: DuplicateOptions,
+  sliceRows = 5000,
+): Generator<void, number[], void> {
   const columns = colIds.map((id) => table.data.get(id)).filter((d) => d !== undefined);
   const seen = new Set<string>();
   const duplicates: number[] = [];
+  let inSlice = 0;
   for (const rowId of rowIds) {
+    if (++inSlice > sliceRows) {
+      inSlice = 1;
+      yield;
+    }
     let key = '';
     for (const data of columns) {
       const state = data.state[rowId] ?? STATE_VALUE;

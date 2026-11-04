@@ -185,7 +185,7 @@ export function importRouter(db: Db, limits: BusinessLimits): Router {
 
       const fileName = validateNameAndSize(req);
       const options = readOptions(req);
-      await assertStorageAvailable(db);
+      await assertStorageAvailable(db, limits.maxDatabaseBytes);
       await new Promise<void>((resolve, reject) => {
         rawBody(req, res, (err?: unknown) => {
           if (err)
@@ -211,7 +211,7 @@ export function importRouter(db: Db, limits: BusinessLimits): Router {
       if (fileExtension(fileName) !== '.xlsx') {
         throw new ApiError(400, 'BAD_REQUEST', 'A pré-visualização no servidor é só para XLSX.');
       }
-      await assertStorageAvailable(db);
+      await assertStorageAvailable(db, limits.maxDatabaseBytes);
       await new Promise<void>((resolve, reject) => {
         rawBody(req, res, (err?: unknown) => {
           if (err)
@@ -246,7 +246,7 @@ export function importRouter(db: Db, limits: BusinessLimits): Router {
       if (Number(req.header('content-length') ?? '0') > RESTORE_MAX_BODY) {
         throw new ApiError(413, 'PAYLOAD_TOO_LARGE', 'Os dados são grandes demais para continuar.');
       }
-      await assertStorageAvailable(db);
+      await assertStorageAvailable(db, limits.maxDatabaseBytes);
       await new Promise<void>((resolve, reject) => {
         restoreBody(req, res, (err?: unknown) => {
           if (err)

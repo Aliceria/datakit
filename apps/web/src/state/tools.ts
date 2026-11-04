@@ -1,6 +1,7 @@
 import {
   ANY_COLUMN,
   findDuplicateRows,
+  findDuplicateRowsInSlices,
   findEmptyRows,
   formatInteger,
   planClearColumns,
@@ -157,6 +158,59 @@ const inSet = (rows: readonly number[]) => {
   const set = new Set(rows);
   return (rowId: number) => set.has(rowId);
 };
+
+export type ToolPreviews = { all: ToolPreview; visible: ToolPreview | undefined };
+
+const yieldToUi = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+/** Remover duplicadas, em fatias (seção 13): a interface não trava com 100.000 linhas. */
+async function duplicatesAsync(
+  table: Table,
+  rows: readonly number[],
+  params: ToolParams,
+  cancelled: () => boolean,
+): Promise<ToolPreview | undefined> {
+  const steps = findDuplicateRowsInSlices(table, rows, params.compare, params);
+  for (;;) {
+    const step = steps.next();
+    if (step.done) {
+      return {
+        effect: planDeleteRows(table, step.value),
+        count: step.value.length,
+        unit: 'linhas',
+      };
+    }
+    await yieldToUi();
+    if (cancelled()) return undefined;
+  }
+}
+
+/**
+ * Prévia para o diálogo: todas as linhas e, com filtro ativo, só as visíveis. Devolve undefined
+ * se for cancelada (o usuário mudou uma opção no meio).
+ */
+export async function previewToolBoth(
+  req: ToolRequest,
+  params: ToolParams,
+  withVisible: boolean,
+  cancelled: () => boolean,
+): Promise<ToolPreviews | undefined> {
+  await yieldToUi();
+  if (cancelled()) return undefined;
+  const table = tableById(req.tableId);
+  if (req.kind !== 'duplicates' || !table) {
+    return {
+      all: previewTool(req, params, 'all'),
+      visible: withVisible ? previewTool(req, params, 'visible') : undefined,
+    };
+  }
+  const all = await duplicatesAsync(table, table.rowOrder, params, cancelled);
+  if (!all) return undefined;
+  if (!withVisible) return { all, visible: undefined };
+  const order = table.rowOrder.filter(inSet(scopeRows(table, 'visible')));
+  const visible = await duplicatesAsync(table, order, params, cancelled);
+  return visible ? { all, visible } : undefined;
+}
 
 function batch(effects: Effect[]): Effect {
   return effects.length === 1 ? (effects[0] as Effect) : { type: 'batch', effects };

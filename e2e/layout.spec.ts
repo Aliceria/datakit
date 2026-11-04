@@ -72,3 +72,19 @@ test('GET /api/health responde ok', async ({ request }) => {
   expect(res.ok()).toBe(true);
   expect(await res.json()).toMatchObject({ status: 'ok', db: 'ok' });
 });
+
+test('Ajuda mostra atalhos, formatos e limites e o aviso de armazenamento temporário', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Ajuda', exact: true }).click();
+  const help = page.getByRole('dialog', { name: 'Ajuda' });
+  await expect(help).toContainText('Atalhos de teclado');
+  await expect(help).toContainText('Ctrl+S');
+  await expect(help).toContainText('Exportar');
+  await expect(help).toContainText('20 MB');
+  await expect(help).toContainText('100.000');
+  await expect(help).toContainText('ficam no servidor só temporariamente');
+  await page.keyboard.press('Escape');
+  await expect(help).toBeHidden();
+});

@@ -67,4 +67,28 @@ export default tseslint.config(
       'no-restricted-imports': ['error', { patterns: ['node:*', 'fs', 'path'] }],
     },
   },
+  {
+    // Leitura, escrita e exportação: número nunca passa por double para ser guardado ou gravado
+    // (docs/PLANO.md, regra 4). Os testes podem usar.
+    files: ['packages/core/src/formats/**/*.ts', 'packages/core/src/export/**/*.ts'],
+    ignores: ['**/*.test.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "CallExpression[callee.name='Number']",
+          message: 'Não converta número com Number(): guarde e grave o texto exato.',
+        },
+        {
+          selector:
+            "CallExpression[callee.name='parseFloat'], CallExpression[callee.name='parseInt']",
+          message: 'Não converta número com parseFloat/parseInt: guarde e grave o texto exato.',
+        },
+        {
+          selector: "CallExpression[callee.object.name='Number'][callee.property.name=/^parse/]",
+          message: 'Não converta número com Number.parse*: guarde e grave o texto exato.',
+        },
+      ],
+    },
+  },
 );

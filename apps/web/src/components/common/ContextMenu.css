@@ -23,7 +23,7 @@
 
 .dk-menu-item:hover:not(:disabled),
 .dk-menu-item:focus-visible {
-  background: var(--accent);
+  background: var(--accent-strong);
   outline: none;
 }
 
