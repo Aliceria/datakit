@@ -146,6 +146,14 @@ describe('JSON', () => {
     a.state[1] = 0;
     a.raw[1] = 'x';
     expect(findNestingConflicts(t, t.rowOrder, ids(t))).toEqual([1]);
+    // O aviso diz quais linhas são (L20).
+    const [warning] = exportWarnings([t], {
+      tableIds: [t.id],
+      fileName: 'x.json',
+      options: { format: 'json', shape: 'objects', nested: true, indent: false },
+    });
+    expect(warning?.code).toBe('NESTING_CONFLICT');
+    expect(warning?.message).toContain(': linha 2.');
   });
 });
 

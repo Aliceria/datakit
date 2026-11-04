@@ -27,6 +27,9 @@ export type ExportRequest = {
   fileName: string;
 };
 
+/** Quantas linhas em conflito o aviso lista pelo número. */
+const CONFLICT_LIST = 10;
+
 export type ExportWarning = { code: string; message: string };
 
 /** A tabela é exportada por inteiro? Só então as marcas de alteração dela somem (L19). */
@@ -48,6 +51,8 @@ export function exportWarnings(tables: readonly Table[], request: ExportRequest)
   let empty = 0;
   let guarded = 0;
   let conflicts = 0;
+  /** Posição (1, 2, …) das linhas em conflito na ordem dos dados, para o aviso (L20). */
+  const conflictRows: number[] = [];
   for (const table of tables.filter((t) => request.tableIds.includes(t.id))) {
     const rows = rowsToExport(table, request);
     for (const column of table.columns) {
@@ -71,11 +76,15 @@ export function exportWarnings(tables: readonly Table[], request: ExportRequest)
       }
     }
     if (options.format === 'json' && options.shape === 'objects' && options.nested) {
-      conflicts += findNestingConflicts(
+      const found = findNestingConflicts(
         table,
         rows,
         table.columns.map((c) => c.id),
-      ).length;
+      );
+      conflicts += found.length;
+      const position = new Map(table.rowOrder.map((id, i) => [id, i + 1]));
+      for (const rowId of found.slice(0, CONFLICT_LIST))
+        conflictRows.push(position.get(rowId) ?? 0);
     }
   }
 
@@ -118,9 +127,14 @@ export function exportWarnings(tables: readonly Table[], request: ExportRequest)
     });
   }
   if (conflicts > 0) {
+    const list = conflictRows.map(n).join(', ');
+    const where =
+      conflicts > CONFLICT_LIST
+        ? `linhas ${list} e outras`
+        : `${conflicts > 1 ? 'linhas' : 'linha'} ${list}`;
     warnings.push({
       code: 'NESTING_CONFLICT',
-      message: `${n(conflicts)} linhas têm valor numa coluna e numa coluna dentro dela (ex.: "a" e "a.b"). Desligue "reconstruir objetos aninhados" para exportar com as chaves com ponto.`,
+      message: `${n(conflicts)} linhas têm valor numa coluna e numa coluna dentro dela (ex.: "a" e "a.b"): ${where}. Corrija esses valores ou desligue "reconstruir objetos aninhados" para exportar com as chaves com ponto.`,
     });
   }
   return warnings;
