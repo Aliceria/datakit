@@ -1,9 +1,22 @@
 import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
+
+/** No desenvolvimento, /metrics abre a página do painel (em produção, quem faz isso é a API). */
+const metricsPage: Plugin = {
+  name: 'datakit-metrics-page',
+  configureServer(server) {
+    server.middlewares.use((req, _res, next) => {
+      if (req.url === '/metrics' || req.url?.startsWith('/metrics?')) {
+        req.url = req.url.replace('/metrics', '/metrics.html');
+      }
+      next();
+    });
+  },
+};
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), metricsPage],
   resolve: {
     // Usa o código-fonte do core direto, sem precisar compilá-lo antes.
     alias: {
@@ -20,5 +33,12 @@ export default defineConfig({
   build: {
     target: 'es2022',
     sourcemap: true,
+    // Duas páginas: o editor e o painel de métricas, que não pesa no editor.
+    rolldownOptions: {
+      input: {
+        main: fileURLToPath(new URL('./index.html', import.meta.url)),
+        metrics: fileURLToPath(new URL('./metrics.html', import.meta.url)),
+      },
+    },
   },
 });

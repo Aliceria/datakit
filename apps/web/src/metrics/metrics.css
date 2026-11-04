@@ -1,0 +1,396 @@
+/* Painel de métricas. Mesma linguagem do editor: escuro, denso, bordas de 1 px, sem sombras.
+   Cores das séries validadas para o fundo do painel (#252526): passam faixa de luminosidade,
+   croma, separação para daltonismo (ΔE 9,4) e contraste de 3:1. */
+:root {
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+}
+
+body {
+  overflow: auto;
+}
+
+#root {
+  height: auto;
+  min-height: 100%;
+}
+
+.dk-m-loading {
+  padding: 24px;
+  color: var(--text-muted);
+}
+
+.dk-m-page {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 16px 32px;
+}
+
+.dk-m-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin: 0 -16px;
+  padding: 8px 16px;
+  background: var(--bg-bar);
+  border-bottom: 1px solid var(--border);
+}
+
+.dk-m-header h1,
+.dk-m-login h1 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.dk-m-header h1 span,
+.dk-m-login h1 span {
+  margin-left: 6px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.dk-m-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.dk-m-controls label,
+.dk-m-table-head label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+}
+
+select,
+.dk-m-login input {
+  background: var(--bg-input);
+  color: var(--text);
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  padding: 3px 4px;
+  font: inherit;
+}
+
+.dk-m-button,
+.dk-m-toggle button,
+.dk-m-pager button,
+.dk-m-login button {
+  display: inline-block;
+  padding: 3px 10px;
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 0;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.dk-m-button:hover,
+.dk-m-toggle button:hover,
+.dk-m-pager button:hover:not(:disabled),
+.dk-m-login button:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+button:disabled {
+  color: var(--text-disabled);
+  cursor: default;
+}
+
+.dk-m-toggle {
+  display: inline-flex;
+}
+
+.dk-m-toggle button + button {
+  border-left: 0;
+}
+
+.dk-m-toggle button[aria-checked='true'] {
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+}
+
+.dk-m-notes {
+  margin: 12px 0;
+  color: var(--text-muted);
+}
+
+.dk-m-notes p {
+  margin: 2px 0;
+}
+
+.dk-m-warning {
+  color: var(--warning);
+}
+
+.dk-m-error {
+  color: var(--danger);
+}
+
+.dk-m-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.dk-m-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+}
+
+.dk-m-card-label {
+  color: var(--text-muted);
+}
+
+.dk-m-card-value {
+  font-family: var(--font-grid);
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dk-m-card-note,
+.dk-m-muted,
+.dk-m-caption {
+  color: var(--text-muted);
+}
+
+.dk-m-caption {
+  margin: 6px 0 12px;
+}
+
+.dk-m-grid2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr));
+  gap: 8px;
+}
+
+.dk-m-chart {
+  margin: 0;
+  padding: 8px 10px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  min-width: 0;
+}
+
+.dk-m-chart figcaption {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.dk-m-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0 0 4px;
+  padding: 0;
+  list-style: none;
+  color: var(--text-muted);
+}
+
+.dk-m-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dk-m-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 4px;
+  border-radius: 2px;
+}
+
+.dk-m-plot {
+  position: relative;
+  min-height: 40px;
+}
+
+.dk-m-plot svg {
+  display: block;
+}
+
+.dk-m-grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.dk-m-tick {
+  fill: var(--text-muted);
+  font-size: 11px;
+}
+
+.dk-m-hit {
+  fill: transparent;
+}
+
+.dk-m-crosshair {
+  stroke: var(--text-muted);
+  stroke-width: 1;
+}
+
+.dk-m-ring {
+  stroke: var(--bg-panel);
+}
+
+.dk-m-tooltip {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 8px;
+  background: var(--bg-bar);
+  border: 1px solid var(--border);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.dk-m-bars {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dk-m-bars li {
+  display: grid;
+  grid-template-columns: minmax(90px, 30%) 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.dk-m-bar-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dk-m-bar-track {
+  display: block;
+  height: 12px;
+}
+
+.dk-m-bar {
+  display: block;
+  height: 12px;
+  min-width: 2px;
+  background: var(--series-1);
+  border-radius: 0 4px 4px 0;
+}
+
+.dk-m-bar-value {
+  font-family: var(--font-grid);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.dk-m-empty {
+  color: var(--text-muted);
+  padding: 8px 0;
+}
+
+.dk-m-datatable summary {
+  color: var(--text-muted);
+  cursor: pointer;
+  margin-top: 4px;
+}
+
+.dk-m-datatable table,
+.dk-m-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.dk-m-datatable th,
+.dk-m-datatable td,
+.dk-m-table th,
+.dk-m-table td {
+  padding: 3px 6px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.dk-m-table th,
+.dk-m-datatable th {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.dk-m-table-section {
+  margin-top: 16px;
+  padding: 8px 10px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  overflow-x: auto;
+}
+
+.dk-m-table-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-bottom: 6px;
+}
+
+.dk-m-table-head h2 {
+  margin: 0;
+  font-size: 13px;
+}
+
+.dk-m-mono {
+  font-family: var(--font-grid);
+}
+
+.dk-m-fail {
+  color: var(--danger);
+}
+
+.dk-m-pager {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 6px;
+  color: var(--text-muted);
+}
+
+.dk-m-login {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 16px;
+}
+
+.dk-m-login form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(100%, 320px);
+  padding: 16px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+}
+
+.dk-m-login label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--text-muted);
+}

@@ -77,6 +77,18 @@ export function HelpDialog({ onClose }: Props) {
             Não há cadastro. A sessão é desta aba: outra aba abre uma sessão separada, e o F5 volta
             ao mesmo ponto.
           </p>
+          <h3 className="dk-tools-title">Privacidade e estatísticas de uso</h3>
+          <p className="dk-help-notice">
+            Para medir o uso do projeto, o DataKit registra dados de acesso e de uso: quando o
+            editor foi aberto, a origem de rede (o IP com o final oculto e um código que não permite
+            recuperá-lo), o formato e o tamanho dos arquivos abertos, as ferramentas usadas e os
+            formatos exportados.
+          </p>
+          <p className="dk-help-notice">
+            O conteúdo dos arquivos, os nomes dos arquivos e das colunas e as linhas editadas não
+            são guardados para as estatísticas. A origem de rede é apagada em até 30 dias; depois
+            disso ficam só os totais por dia, sem identificação.
+          </p>
         </section>
       </div>
     </Modal>

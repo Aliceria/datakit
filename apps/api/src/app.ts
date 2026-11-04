@@ -50,6 +50,23 @@ export function createApp({ config, db, cleanup, metrics: given }: AppDeps): Exp
   // Em produção o Express também serve o build do frontend, na mesma origem (seção 15).
   const indexHtml = path.join(config.webDistDir, 'index.html');
   if (fs.existsSync(indexHtml)) {
+    // Painel de métricas: só existe com usuário e senha configurados; sem eles, 404. A página
+    // não traz dados: os números vêm de /api/metrics/admin/*, que exige login.
+    const metricsHtml = path.join(config.webDistDir, 'metrics.html');
+    const panelEnabled = Boolean(config.metrics.adminUser && config.metrics.adminPassword);
+    app.get('/metrics', (_req, res, next) => {
+      if (!panelEnabled || !fs.existsSync(metricsHtml)) {
+        next();
+        return;
+      }
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+      res.sendFile(metricsHtml);
+    });
+    // O arquivo só é servido pela rota acima.
+    app.get(['/metrics', '/metrics.html'], (_req, res) => {
+      res.status(404).type('text/plain; charset=utf-8').send('Página não encontrada.');
+    });
     app.use(express.static(config.webDistDir, { index: false, maxAge: '1h' }));
     app.get('/{*path}', (_req, res) => {
       res.setHeader('Cache-Control', 'no-cache');
