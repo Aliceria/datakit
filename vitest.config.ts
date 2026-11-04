@@ -22,6 +22,8 @@ export default defineConfig({
           include: ['src/**/*.test.ts'],
           environment: 'node',
           env: { NODE_ENV: 'test' },
+          // Gera o CSV de 100.000 linhas (não versionado) se ainda não existir, como no E2E.
+          globalSetup: ['../../e2e/global-setup.ts'],
           // Os worker threads do parsing rodam o código-fonte do core.
           execArgv: ['--conditions=source'],
           testTimeout: 30_000,
