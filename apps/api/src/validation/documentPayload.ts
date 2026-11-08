@@ -96,7 +96,7 @@ export const documentPayloadSchema = z
               tableId,
               z
                 .object({
-                  cells: z.array(z.string().regex(/^d{1,8}:cd{1,7}$/)).max(3_100_000),
+                  cells: z.array(z.string().regex(/^\d{1,8}:c\d{1,7}$/)).max(3_100_000),
                   rows: z.array(z.number().int().min(0)).max(1_000_000),
                   cols: z.array(columnId).max(1000),
                 })

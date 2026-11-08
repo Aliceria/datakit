@@ -4,6 +4,7 @@ import zlib from 'node:zlib';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   applyChunk,
+  emptyHistory,
   encodeDocument,
   readCell,
   tableFromManifest,
@@ -330,6 +331,24 @@ describe('continuar em uma nova sessão (L14)', () => {
       ['', 'x'],
     ]);
     expect(manifest.source.fileName).toBe('dados.csv');
+  });
+
+  it('mantém as marcas de alteração (células, linhas e colunas), como o navegador envia', async () => {
+    await start();
+    const { sid } = await openSession('a;b\n1;2\n3;4\n');
+    const { manifest, tables } = await loadTables(sid);
+    const marks = {
+      changes: 3,
+      tables: { t0: { cells: ['0:c1', '1:c0'], rows: [1], cols: ['c1'] } },
+    };
+    const encoded = encodeDocument(
+      { source: manifest.source, tables, warnings: [] },
+      { snapshotSeq: 0, history: emptyHistory(), marks },
+    );
+    const res = await restore(zlib.gzipSync(JSON.stringify(encoded)));
+    expect(res.status).toBe(201);
+    const { sessionId } = (await res.json()) as { sessionId: string };
+    expect((await loadTables(sessionId)).manifest.marks).toEqual(marks);
   });
 
   it('recusa dados malformados', async () => {
