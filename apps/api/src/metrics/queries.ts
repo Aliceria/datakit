@@ -40,7 +40,6 @@ export type Summary = {
     /** Em "todo o período", as origens são somadas dia a dia (os HMACs somem em 30 dias). */
     distinctOriginsIsDailySum: boolean;
     filesImported: number;
-    filesEdited: number;
     filesExported: number;
     completeSessions: number;
     operations: number;
@@ -76,7 +75,7 @@ export async function summary(
     }),
     db.metricsEdit.findMany({
       where: { ...at, classification, ok: true },
-      select: { importId: true, kind: true, tool: true },
+      select: { kind: true, tool: true },
     }),
     db.metricsExport.findMany({
       where: { ...at, classification, ok: true },
@@ -118,9 +117,6 @@ export async function summary(
 
   const importIds = new Set(imports.map((i) => i.id));
   const exportedIds = new Set(exports.flatMap((e) => (e.importId === null ? [] : [e.importId])));
-  const editedIds = new Set(
-    edits.flatMap((e) => (e.kind === 'edit' && e.importId !== null ? [e.importId] : [])),
-  );
   const completeSessions = [...importIds].filter((id) => exportedIds.has(id)).length;
 
   const count = <T>(rows: readonly T[], key: (r: T) => string | undefined) => {
@@ -181,7 +177,6 @@ export async function summary(
       distinctOrigins,
       distinctOriginsIsDailySum: dailySum,
       filesImported: imports.length,
-      filesEdited: [...editedIds].filter((id) => importIds.has(id)).length,
       filesExported: [...exportedIds].filter((id) => importIds.has(id)).length,
       completeSessions,
       operations: edits.length,
@@ -373,7 +368,6 @@ export function reportCsv(s: Summary): string {
       s.cards.distinctOrigins,
     ],
     ['arquivos_importados', s.cards.filesImported],
-    ['arquivos_editados', s.cards.filesEdited],
     ['arquivos_exportados', s.cards.filesExported],
     ['sessoes_completas', s.cards.completeSessions],
     ['operacoes', s.cards.operations],

@@ -233,7 +233,6 @@ describe('números do painel', () => {
       distinctOrigins: 2,
       distinctOriginsIsDailySum: false,
       filesImported: 2,
-      filesEdited: 1,
       filesExported: 1,
       completeSessions: 1,
       operations: 2,

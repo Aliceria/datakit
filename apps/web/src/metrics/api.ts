@@ -16,7 +16,6 @@ export type Summary = {
     distinctOrigins: number;
     distinctOriginsIsDailySum: boolean;
     filesImported: number;
-    filesEdited: number;
     filesExported: number;
     completeSessions: number;
     operations: number;

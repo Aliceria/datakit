@@ -256,7 +256,6 @@ function Dashboard({
               note={c.distinctOriginsIsDailySum ? 'soma por dia' : undefined}
             />
             <Card label="Arquivos importados" value={c.filesImported} />
-            <Card label="Arquivos editados" value={c.filesEdited} />
             <Card label="Arquivos exportados" value={c.filesExported} />
             <Card
               label="Sessões completas"
